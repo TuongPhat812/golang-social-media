@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  gateway:
+    image: golang:1.22
+    container_name: gsm-gateway
+    working_dir: /app/gateway
+    command: go run ./cmd/gateway
+    environment:
+      - GOTOOLCHAIN=auto
+      - CHAT_SERVICE_ADDR=chat-service:9000
+    volumes:
+      - ./:/app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - chat-service
+      - notification-service
+      - socket-service
+    networks:
+      - gsm-network
+
+  chat-service:
+    image: golang:1.22
+    container_name: gsm-chat-service
+    working_dir: /app/chat-service
+    command: go run ./cmd/chat-service
+    environment:
+      - GOTOOLCHAIN=auto
+      - KAFKA_BROKERS=kafka:9092
+    volumes:
+      - ./:/app
+    ports:
+      - "9000:9000"
+    networks:
+      - gsm-network
+
+  notification-service:
+    image: golang:1.22
+    container_name: gsm-notification-service
+    working_dir: /app/notification-service
+    command: go run ./cmd/notification-service
+    environment:
+      - GOTOOLCHAIN=auto
+      - KAFKA_BROKERS=kafka:9092
+      - NOTIFICATION_CHAT_GROUP_ID=notification-service-chat
+    volumes:
+      - ./:/app
+    ports:
+      - "9100:9100"
+    networks:
+      - gsm-network
+
+  socket-service:
+    image: golang:1.22
+    container_name: gsm-socket-service
+    working_dir: /app/socket-service
+    command: go run ./cmd/socket-service
+    environment:
+      - GOTOOLCHAIN=auto
+      - KAFKA_BROKERS=kafka:9092
+      - SOCKET_CHAT_GROUP_ID=socket-service-chat
+      - SOCKET_NOTIFICATION_GROUP_ID=socket-service-notification
+    volumes:
+      - ./:/app
+    ports:
+      - "9200:9200"
+    networks:
+      - gsm-network
+
+networks:
+  gsm-network:
+    external: true
+    name: gsm-network

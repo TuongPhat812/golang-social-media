@@ -1,0 +1,47 @@
+# Binaries & build output
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build cache & module cache
+*.a
+*.o
+
+# IDE/editor files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
+*.tmp
+*.pid
+coverage.out
+
+# Environment & secrets
+.env
+.env.*
+*.local
+
+docker-compose.*.local.yml
+
+# Vendor & generated
+vendor/
+proto/
+*.pb.go
+
+# Node/Web deps (if any future frontend)
+node_modules/
+
+# Misc
+*.db
+*.sqlite
+*.bak
