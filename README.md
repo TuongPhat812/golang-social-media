@@ -1,18 +1,28 @@
 # Golang Social Media Prototype
 
-This repository contains five Go modules representing a gateway HTTP API, two gRPC microservices, a dedicated WebSocket server, and shared domain entities. Each service follows a Domain-Driven Design (DDD) layout to keep the domain, application, infrastructure, and interface layers separated for future growth.
+This repository is organised as a mono-repo with four Go services under `apps/` (gateway, chat, notification, socket) and shared packages in `pkg/`. Each service keeps a Domain-Driven Design (DDD) layout so the domain, application, infrastructure, and interface layers remain isolated.
 
-## Modules
+## Layout
 
-- `gateway`: Gin-based HTTP gateway serving REST endpoints and orchestrating downstream calls to backend services.
-- `chat-service`: gRPC server responsible for chat-related features and emitting chat domain events to Kafka.
-- `notification-service`: gRPC server that reacts to chat events, creates notifications, and emits notification events to Kafka.
-- `socket-service`: WebSocket gateway that listens for domain events from Kafka and broadcasts payloads to connected clients.
-- `common`: Shared domain entities, contracts, and event definitions consumed across services.
+```
+.
+├── apps/
+│   ├── gateway/
+│   ├── chat-service/
+│   ├── notification-service/
+│   └── socket-service/
+└── pkg/               # shared config, contracts, events, codecs, etc.
+```
+
+- `apps/gateway`: Gin HTTP gateway orchestrating downstream calls.
+- `apps/chat-service`: gRPC service creating chat messages and emitting Kafka events.
+- `apps/notification-service`: gRPC service consuming chat events, creating notifications, and emitting follow-up events.
+- `apps/socket-service`: WebSocket service broadcasting events to connected clients.
+- `pkg`: Reusable packages (`config`, `contracts`, `events`, `grpcjson`, …).
 
 ## Project Layout
 
-Every service module exposes the executable inside `cmd/<service-name>` and keeps internal code within the `internal` directory.
+Every service exposes its entrypoint under `apps/<service>/cmd/<service>/main.go` and keeps implemention details under `apps/<service>/internal/`.
 
 ```
 <service>
@@ -24,7 +34,7 @@ Every service module exposes the executable inside `cmd/<service-name>` and keep
     └── interfaces/                # Transport layers (HTTP, gRPC, WebSocket, etc.)
 ```
 
-The `common` module stores shared domain types, contracts, and event payloads so services can rely on a single source of truth.
+Shared packages now live in `pkg/` so services can import `github.com/<org>/golang-social-media/pkg/<package>`.
 
 ## Docker Compose Setup
 
@@ -40,7 +50,7 @@ cd /home/ubuntu/Workspace/myself/golang-social-media
 docker compose -f docker-compose.infra.yml up -d
 ```
 
-This creates the shared `gsm-network` and exposes Kafka on `kafka:9092` for other containers and `localhost:9092` for host clients.
+This creates the shared `gsm-network` and exposes Kafka on `kafka:9092` for other containers and `localhost:9094` for host clients.
 
 ### Start Application Services
 
@@ -72,18 +82,18 @@ If you prefer running binaries directly on the host, the executables automatical
 
 ```bash
 # In separate shells
-cd notification-service && go run ./cmd/notification-service
-cd chat-service && go run ./cmd/chat-service
-cd socket-service && go run ./cmd/socket-service
-cd gateway && go run ./cmd/gateway
+cd apps/notification-service && go run ./cmd/notification-service
+cd apps/chat-service && go run ./cmd/chat-service
+cd apps/socket-service && go run ./cmd/socket-service
+cd apps/gateway && go run ./cmd/gateway
 ```
 
-Override any setting by exporting it before launch, for example `export KAFKA_BROKERS=localhost:9092`.
+Override any setting by exporting it before launch, for example `export KAFKA_BROKERS=localhost:9094`.
 
 ## Development Notes
 
-- The repository uses a Go workspace (`go.work`) so modules can reference each other locally.
-- Kafka producers/consumers are implemented with [`segmentio/kafka-go`](https://github.com/segmentio/kafka-go). When running outside Docker, use the host listener `localhost:9092`; services inside Docker should continue to use `kafka:9092`.
-- Dependencies on the `common` module are resolved via local replace directives and do not require publishing to a remote repository.
+- The repository uses a Go workspace (`go.work`) that includes every service under `apps/` plus the shared `pkg/` module.
+- Kafka producers/consumers are implemented with [`segmentio/kafka-go`](https://github.com/segmentio/kafka-go). When running outside Docker, use the host listener `localhost:9094`; services inside Docker should continue to use `kafka:9092`.
+- Shared code is pulled from `pkg/` via local replace directives, so nothing needs to be published externally.
 
 Future work will flesh out persistence, authentication, and real-time delivery handlers while keeping the DDD boundaries intact.

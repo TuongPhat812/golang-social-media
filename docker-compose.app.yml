@@ -4,7 +4,7 @@ services:
   gateway:
     image: golang:1.22
     container_name: gsm-gateway
-    working_dir: /app/gateway
+    working_dir: /app/apps/gateway
     command: go run ./cmd/gateway
     environment:
       - GOTOOLCHAIN=auto
@@ -23,7 +23,7 @@ services:
   chat-service:
     image: golang:1.22
     container_name: gsm-chat-service
-    working_dir: /app/chat-service
+    working_dir: /app/apps/chat-service
     command: go run ./cmd/chat-service
     environment:
       - GOTOOLCHAIN=auto
@@ -38,7 +38,7 @@ services:
   notification-service:
     image: golang:1.22
     container_name: gsm-notification-service
-    working_dir: /app/notification-service
+    working_dir: /app/apps/notification-service
     command: go run ./cmd/notification-service
     environment:
       - GOTOOLCHAIN=auto
@@ -54,7 +54,7 @@ services:
   socket-service:
     image: golang:1.22
     container_name: gsm-socket-service
-    working_dir: /app/socket-service
+    working_dir: /app/apps/socket-service
     command: go run ./cmd/socket-service
     environment:
       - GOTOOLCHAIN=auto

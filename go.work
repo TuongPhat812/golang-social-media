@@ -1,9 +1,9 @@
 go 1.25.3
 
 use (
-	./chat-service
-	./common
-	./gateway
-	./notification-service
-	./socket-service
+	./apps/chat-service
+	./apps/gateway
+	./apps/notification-service
+	./apps/socket-service
+	./pkg
 )
