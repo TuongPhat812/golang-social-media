@@ -11,14 +11,14 @@ This repository is organised as a mono-repo with four Go services under `apps/` 
 │   ├── chat-service/
 │   ├── notification-service/
 │   └── socket-service/
-└── pkg/               # shared config, contracts, events, codecs, etc.
+└── pkg/               # shared config, events, generated protobuf code, etc.
 ```
 
 - `apps/gateway`: Gin HTTP gateway orchestrating downstream calls.
 - `apps/chat-service`: gRPC service creating chat messages and emitting Kafka events.
 - `apps/notification-service`: gRPC service consuming chat events, creating notifications, and emitting follow-up events.
 - `apps/socket-service`: WebSocket service broadcasting events to connected clients.
-- `pkg`: Reusable packages (`config`, `contracts`, `events`, `grpcjson`, …).
+- `pkg`: Reusable packages (`config`, `events`, protobuf stubs under `pkg/gen`, …).
 
 ## Project Layout
 
@@ -35,6 +35,17 @@ Every service exposes its entrypoint under `apps/<service>/cmd/<service>/main.go
 ```
 
 Shared packages now live in `pkg/` so services can import `github.com/<org>/golang-social-media/pkg/<package>`.
+
+### Protobuf Contracts
+
+- Schemas live under `proto/`. Currently only `proto/chat/v1/chat_service.proto`.
+- Generated Go code is committed under `pkg/gen/chat/v1`.
+- Ensure you have `protoc` plus the Go plugins (`protoc-gen-go`, `protoc-gen-go-grpc`) on your `PATH`.
+- Regenerate Go code with:
+
+  ```bash
+  protoc --proto_path=proto --go_out=. --go-grpc_out=. proto/chat/v1/chat_service.proto
+  ```
 
 ## Docker Compose Setup
 

@@ -6,15 +6,14 @@ import (
 	"time"
 
 	"github.com/myself/golang-social-media/pkg/config"
-	chatcontract "github.com/myself/golang-social-media/pkg/contracts/chat"
-	"github.com/myself/golang-social-media/pkg/grpcjson"
+	chatv1 "github.com/myself/golang-social-media/pkg/gen/chat/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Client struct {
 	conn   *grpc.ClientConn
-	client chatcontract.ChatServiceClient
+	client chatv1.ChatServiceClient
 }
 
 func NewClient(ctx context.Context) (*Client, error) {
@@ -27,7 +26,6 @@ func NewClient(ctx context.Context) (*Client, error) {
 		dialCtx,
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(grpc.ForceCodec(grpcjson.Codec())),
 		grpc.WithBlock(),
 	)
 	if err != nil {
@@ -35,7 +33,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 	}
 
 	log.Printf("[gateway] connected to chat service at %s", addr)
-	return &Client{conn: conn, client: chatcontract.NewChatServiceClient(conn)}, nil
+	return &Client{conn: conn, client: chatv1.NewChatServiceClient(conn)}, nil
 }
 
 func (c *Client) Close() error {
@@ -45,6 +43,6 @@ func (c *Client) Close() error {
 	return nil
 }
 
-func (c *Client) CreateMessage(ctx context.Context, in *chatcontract.CreateMessageRequest) (*chatcontract.CreateMessageResponse, error) {
-	return c.client.CreateMessage(ctx, in)
+func (c *Client) CreateMessage(ctx context.Context, in *chatv1.CreateMessageRequest, opts ...grpc.CallOption) (*chatv1.CreateMessageResponse, error) {
+	return c.client.CreateMessage(ctx, in, opts...)
 }

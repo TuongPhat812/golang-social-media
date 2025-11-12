@@ -4,7 +4,6 @@ import (
 	"log"
 	"net"
 
-	"github.com/myself/golang-social-media/pkg/grpcjson"
 	"google.golang.org/grpc"
 )
 
@@ -14,7 +13,7 @@ func Start(addr string, register func(*grpc.Server)) error {
 		return err
 	}
 
-	server := grpc.NewServer(grpc.ForceServerCodec(grpcjson.Codec()))
+	server := grpc.NewServer()
 	if register != nil {
 		register(server)
 	}

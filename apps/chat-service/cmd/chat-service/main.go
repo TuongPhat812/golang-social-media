@@ -9,7 +9,7 @@ import (
 	grpcserver "github.com/myself/golang-social-media/apps/chat-service/internal/infrastructure/grpc"
 	chatgrpc "github.com/myself/golang-social-media/apps/chat-service/internal/interfaces/grpc/chat"
 	"github.com/myself/golang-social-media/pkg/config"
-	chatcontract "github.com/myself/golang-social-media/pkg/contracts/chat"
+	chatv1 "github.com/myself/golang-social-media/pkg/gen/chat/v1"
 	"google.golang.org/grpc"
 )
 
@@ -36,7 +36,7 @@ func main() {
 
 	if err := grpcserver.Start(addr, func(server *grpc.Server) {
 		handler := chatgrpc.NewHandler(messageService)
-		chatcontract.RegisterChatServiceServer(server, handler)
+		chatv1.RegisterChatServiceServer(server, handler)
 	}); err != nil {
 		log.Fatalf("failed to serve gRPC: %v", err)
 	}
