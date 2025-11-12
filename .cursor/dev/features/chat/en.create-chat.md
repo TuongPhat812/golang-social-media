@@ -10,7 +10,7 @@ Use this checklist to trace `POST /chat/messages` end-to-end.
 3. **gRPC client** – `apps/gateway/internal/infrastructure/grpc/chat/client.go`
    - Creates `pkg/gen/chat/v1.ChatServiceClient`, loads `CHAT_SERVICE_ADDR` from `pkg/config`.
 4. **Server bootstrap** – `apps/chat-service/cmd/chat-service/main.go`
-   - Loads env, opens a GORM connection to Postgres (`CHAT_DATABASE_DSN`), runs `AutoMigrate`, sets up Kafka publisher, and registers gRPC handler.
+   - Loads env, opens a GORM connection to Postgres (`CHAT_DATABASE_DSN`), sets up Kafka publisher, and registers gRPC handler. (Migrations are manual via `go run ./cmd/migrate`.)
 5. **gRPC handler** – `apps/chat-service/internal/interfaces/grpc/chat/handler.go`
    - Receives protobuf request, forwards to application service.
 6. **Use case / Application service** – `apps/chat-service/internal/application/messages/service.go`

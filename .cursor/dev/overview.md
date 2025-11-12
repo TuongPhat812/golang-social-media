@@ -27,8 +27,8 @@
      -d '{"senderId":"user-1","receiverId":"user-2","content":"hello"}'
    ```
 4. WebSocket endpoint lives at `ws://localhost:9200/ws`.
-5. Chat-service runs GORM `AutoMigrate` automatically, but you can create SQL migrations under `apps/chat-service/migrations` using `migrate create -ext sql -dir apps/chat-service/migrations -seq <name>`.
-6. Shortcut commands live in the root `Makefile` (`make proto`, `make migration-create NAME=...`, `make migration-up`, `make migration-down`).
+5. Chat-service relies on manual migrations (GORM auto-migrate was removed). SQL migrations sống ở `apps/chat-service/migrations`.
+6. Shortcut commands: root `Makefile` (`make proto`, `make migration-create NAME=...`, `make migration-up`, `make migration-down`) hoặc CLI: `cd apps/chat-service && go run ./cmd/migrate [create|up|down]`.
 
 ## Environment
 

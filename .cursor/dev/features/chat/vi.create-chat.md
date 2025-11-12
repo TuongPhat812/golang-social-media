@@ -10,7 +10,7 @@ Danh sách dưới đây giúp bạn hiểu toàn bộ pipeline `POST /chat/mess
 3. **gRPC client** – `apps/gateway/internal/infrastructure/grpc/chat/client.go`
    - Khởi tạo `pkg/gen/chat/v1.ChatServiceClient`, load `CHAT_SERVICE_ADDR` qua `pkg/config`.
 4. **Bootstrap server** – `apps/chat-service/cmd/chat-service/main.go`
-   - Tải env, mở kết nối GORM tới Postgres (`CHAT_DATABASE_DSN`), chạy `AutoMigrate`, khởi tạo Kafka publisher, đăng ký gRPC handler.
+   - Tải env, mở kết nối GORM tới Postgres (`CHAT_DATABASE_DSN`), khởi tạo Kafka publisher, đăng ký gRPC handler (migrations chạy thủ công bằng `go run ./cmd/migrate`).
 5. **gRPC handler** – `apps/chat-service/internal/interfaces/grpc/chat/handler.go`
    - Nhận request (protobuf), gọi service ứng dụng.
 6. **Use case / Application service** – `apps/chat-service/internal/application/messages/service.go`

@@ -36,10 +36,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
-	if err := db.AutoMigrate(&persistence.MessageModel{}); err != nil {
-		log.Fatalf("failed to auto-migrate message schema: %v", err)
-	}
-
 	messageRepository := persistence.NewMessageRepository(db)
 	messageService := messages.NewService(messageRepository, publisher)
 

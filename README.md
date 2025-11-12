@@ -105,7 +105,16 @@ Override any setting by exporting it before launch, for example `export KAFKA_BR
 
 - Chat-service connects to Postgres using the `CHAT_DATABASE_DSN` environment variable (defaults to `postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable`).
 - GORM automatically runs `AutoMigrate` for the `messages` table on service start.
-- Versioned SQL migrations live in `apps/chat-service/migrations`. Install the CLI via `brew install golang-migrate` or download from the releases page. Helpful commands:
+- Versioned SQL migrations live in `apps/chat-service/migrations`. You can either use the Makefile targets or run the built-in Go CLI. Examples (from the repo root):
+
+  ```bash
+  cd apps/chat-service
+  go run ./cmd/migrate create add_messages_index   # generates stub files
+  go run ./cmd/migrate up                          # applies pending migrations
+  go run ./cmd/migrate down                        # rolls back one step
+  ```
+
+  If you prefer Makefile aliases from the repo root you can still use:
 
   ```bash
   # create a new migration (NAME is required)

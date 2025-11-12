@@ -21,8 +21,9 @@ For a concrete example, see `.cursor/dev/features/chat/create-chat.md` which fol
 ## 5. Running / Debugging Tips
 - Use the log statements added to Kafka publishers/subscribers to confirm which broker each service uses.
 - For quick testing, run a single POST request and observe logs across services.
-- If you need to inspect Kafka topics, exec into the Kafka container (`docker exec -it gsm-kafka bash`) and use `kafka-console-consumer.sh`.
-- Need to peek at the database? `docker exec -it gsm-postgres psql -U chat_user -d chat_service`.
+- If you need to inspect Kafka topics, exec into the Kafka container (`docker exec -it gsm-kafka bash`) và dùng `kafka-console-consumer.sh`.
+- Cần xem DB? `docker exec -it gsm-postgres psql -U chat_user -d chat_service`.
+- Quản lý migration: `cd apps/chat-service && go run ./cmd/migrate [create|up|down]`.
 
 ---
 **Need to modify or extend?**
