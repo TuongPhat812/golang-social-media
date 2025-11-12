@@ -2,11 +2,11 @@ package chat
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"golang-social-media/pkg/config"
 	chatv1 "golang-social-media/pkg/gen/chat/v1"
+	"golang-social-media/pkg/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -32,7 +32,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 		return nil, err
 	}
 
-	log.Printf("[gateway] connected to chat service at %s", addr)
+	logger.Info().Str("addr", addr).Msg("gateway connected to chat service")
 	return &Client{conn: conn, client: chatv1.NewChatServiceClient(conn)}, nil
 }
 

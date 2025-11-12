@@ -51,7 +51,7 @@ Shared packages now live in `pkg/` so services can import `golang-social-media/p
 
 Two Compose files are provided:
 
-- `docker-compose.infra.yml` — brings up a single-node Kafka broker using the official `apache/kafka` KRaft image (no Zookeeper required).
+- `docker-compose.infra.yml` — brings up Kafka, Postgres, Loki, Promtail, Kafka UI, and Grafana (no Zookeeper required thanks to KRaft mode).
 - `docker-compose.app.yml` — runs the Go services inside containers (expects the infra stack to be running).
 
 ### Start Infrastructure
@@ -61,7 +61,14 @@ cd /home/ubuntu/Workspace/myself/golang-social-media
 docker compose -f docker-compose.infra.yml up -d
 ```
 
-This brings up Postgres and Kafka on the shared `gsm-network`. Postgres exposes `localhost:5432` (for host clients) and the DNS name `gsm-postgres:5432` inside the Docker network. Kafka remains available on `kafka:9092` (containers) and `localhost:9092` (host).
+This brings up Postgres, Kafka, and the observability stack on the shared `gsm-network`:
+
+- Postgres: `localhost:5432` (host) / `gsm-postgres:5432` (containers)
+- Kafka: `localhost:9092` (host) / `kafka:9092` (containers)
+- Loki: `http://localhost:3100`
+- Promtail scrapes `/var/log/app/*.log` and forwards to Loki.
+- Grafana: `http://localhost:3000` (default `admin/admin`)
+- Kafka UI: `http://localhost:8088`
 
 ### Start Application Services
 
@@ -70,7 +77,7 @@ cd /home/ubuntu/Workspace/myself/golang-social-media
 docker compose -f docker-compose.app.yml up --build
 ```
 
-Each service runs with code mounted from the host, using Go's `GOTOOLCHAIN=auto` to pull the correct toolchain. The containers connect to Kafka and Postgres through the shared Docker network.
+Each service runs with code mounted from the host, using Go's `GOTOOLCHAIN=auto` to pull the correct toolchain. The containers connect to Kafka/Postgres and write logs to `/var/log/app` (mounted from `./logs`) so Promtail/Loki can ingest them.
 
 Stop everything with:
 
@@ -104,7 +111,7 @@ Override any setting by exporting it before launch, for example `export KAFKA_BR
 ## Database & Migrations
 
 - Chat-service connects to Postgres using the `CHAT_DATABASE_DSN` environment variable (defaults to `postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable`).
-- GORM automatically runs `AutoMigrate` for the `messages` table on service start.
+- Schema changes rely on explicit SQL migrations (GORM auto-migrate is disabled).
 - Versioned SQL migrations live in `apps/chat-service/migrations`. You can either use the Makefile targets or run the built-in Go CLI. Examples (from the repo root):
 
   ```bash
@@ -134,5 +141,6 @@ Override any setting by exporting it before launch, for example `export KAFKA_BR
 - The repository uses a Go workspace (`go.work`) that includes every service under `apps/` plus the shared `pkg/` module.
 - Kafka producers/consumers are implemented with [`segmentio/kafka-go`](https://github.com/segmentio/kafka-go). When running outside Docker, use the host listener `localhost:9094`; services inside Docker should continue to use `kafka:9092`.
 - Shared code is pulled from `pkg/` via local replace directives, so nothing needs to be published externally.
+- Logging uses Zerolog with JSON output. Set `LOG_OUTPUT_DIR` (default `./logs`) to control file location. Docker compose sets it to `/var/log/app`, which Promtail watches and ships to Loki/Grafana.
 
 Future work will flesh out persistence, authentication, and real-time delivery handlers while keeping the DDD boundaries intact.

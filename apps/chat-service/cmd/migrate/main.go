@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"golang-social-media/pkg/logger"
 )
 
 const (
@@ -36,21 +36,25 @@ func main() {
 	switch command {
 	case "create":
 		if len(os.Args) < 3 {
-			log.Fatal("missing migration name. Example: go run ./cmd/migrate create add_messages_index")
+			logger.Error().Msg("missing migration name. Example: go run ./cmd/migrate create add_messages_index")
+			os.Exit(1)
 		}
 		name := os.Args[2]
 		if err := createMigration(name); err != nil {
-			log.Fatalf("failed to create migration: %v", err)
+			logger.Error().Err(err).Msg("failed to create migration")
+			os.Exit(1)
 		}
 		fmt.Printf("Created migration %s\n", name)
 	case "up":
 		if err := runMigrations(1); err != nil {
-			log.Fatalf("failed to run migrations up: %v", err)
+			logger.Error().Err(err).Msg("failed to run migrations up")
+			os.Exit(1)
 		}
 		fmt.Println("Migrations applied")
 	case "down":
 		if err := runMigrations(-1); err != nil {
-			log.Fatalf("failed to run migrations down: %v", err)
+			logger.Error().Err(err).Msg("failed to run migrations down")
+			os.Exit(1)
 		}
 		fmt.Println("Migrations rolled back one step")
 	default:
@@ -99,10 +103,10 @@ func runMigrations(direction int) error {
 	defer func() {
 		srcErr, dbErr := m.Close()
 		if srcErr != nil {
-			log.Printf("source close error: %v", srcErr)
+			logger.Error().Err(srcErr).Msg("migration source close error")
 		}
 		if dbErr != nil {
-			log.Printf("database close error: %v", dbErr)
+			logger.Error().Err(dbErr).Msg("migration database close error")
 		}
 	}()
 
@@ -116,7 +120,7 @@ func runMigrations(direction int) error {
 	}
 
 	if errors.Is(err, migrate.ErrNoChange) {
-		log.Println("no changes to apply")
+		logger.Info().Msg("migration: no changes to apply")
 		return nil
 	}
 	return err

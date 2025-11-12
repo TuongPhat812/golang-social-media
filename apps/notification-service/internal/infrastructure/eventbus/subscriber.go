@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 
-	"golang-social-media/pkg/events"
-	"golang-social-media/apps/notification-service/internal/application/notifications"
 	"github.com/segmentio/kafka-go"
+	"golang-social-media/apps/notification-service/internal/application/notifications"
+	"golang-social-media/pkg/events"
+	"golang-social-media/pkg/logger"
 )
 
 type Subscriber struct {
@@ -24,7 +24,10 @@ func NewSubscriber(brokers []string, groupID string, service notifications.Servi
 		return nil, errors.New("groupID must be provided")
 	}
 
-	log.Printf("[notification-service] initializing kafka subscriber with brokers: %v, group: %s", brokers, groupID)
+	logger.Info().
+		Strs("brokers", brokers).
+		Str("group", groupID).
+		Msg("notification-service kafka subscriber configured")
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: brokers,
@@ -41,21 +44,21 @@ func (s *Subscriber) ConsumeChatCreated(ctx context.Context) {
 			msg, err := s.reader.ReadMessage(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) || errors.Is(err, kafka.ErrGroupClosed) {
-					log.Println("[notification-service] chat consumer shutting down")
+					logger.Info().Msg("notification-service chat consumer shutting down")
 					return
 				}
-				log.Printf("[notification-service] failed to read ChatCreated message: %v", err)
+				logger.Error().Err(err).Msg("notification-service failed to read ChatCreated message")
 				continue
 			}
 
 			var event events.ChatCreated
 			if err := json.Unmarshal(msg.Value, &event); err != nil {
-				log.Printf("[notification-service] failed to unmarshal ChatCreated event: %v", err)
+				logger.Error().Err(err).Msg("notification-service failed to unmarshal ChatCreated event")
 				continue
 			}
 
 			if err := s.service.HandleChatCreated(ctx, event); err != nil {
-				log.Printf("[notification-service] failed to handle ChatCreated event: %v", err)
+				logger.Error().Err(err).Msg("notification-service failed to handle ChatCreated event")
 			}
 		}
 	}()

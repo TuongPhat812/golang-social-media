@@ -10,7 +10,8 @@
 - **pkg/** — reusable building blocks shared across services (`config`, `events`, generated protobuf code, etc.). Treat this as the canonical place for cross-service definitions.
 - **Kafka/Postgres Flow** — gateway -> chat service -> Postgres persistence + Kafka event -> notification & socket listeners -> WebSocket broadcast.
 - **Go Workspace** — `go.work` ties `apps/*` and `pkg/` together for local development.
-- **Docker Compose** — split into `docker-compose.infra.yml` (Kafka) and `docker-compose.app.yml` (run the services inside containers).
+- **Docker Compose** — split into `docker-compose.infra.yml` (Kafka, Postgres, Loki, Promtail, Grafana, Kafka UI) and `docker-compose.app.yml` (run the services inside containers).
+- **Logging** — Zerolog writes JSON logs to `LOG_OUTPUT_DIR` (default `./logs`); Promtail ships them to Loki/Grafana when running via Docker Compose.
 
 ## Quick Start
 

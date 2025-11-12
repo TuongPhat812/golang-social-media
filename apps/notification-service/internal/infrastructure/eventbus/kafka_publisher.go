@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 
-	"golang-social-media/pkg/events"
 	"github.com/segmentio/kafka-go"
+	"golang-social-media/pkg/events"
+	"golang-social-media/pkg/logger"
 )
 
 type KafkaPublisher struct {
@@ -19,13 +19,15 @@ func NewKafkaPublisher(brokers []string) (*KafkaPublisher, error) {
 		return nil, errors.New("kafka brokers must be provided")
 	}
 
-	log.Printf("[notification-service] initializing kafka publisher with brokers: %v", brokers)
-
 	writer := &kafka.Writer{
 		Addr:     kafka.TCP(brokers...),
 		Topic:    events.TopicNotificationCreated,
 		Balancer: &kafka.LeastBytes{},
 	}
+
+	logger.Info().
+		Strs("brokers", brokers).
+		Msg("notification-service kafka publisher initialized")
 
 	return &KafkaPublisher{writer: writer}, nil
 }
@@ -33,15 +35,23 @@ func NewKafkaPublisher(brokers []string) (*KafkaPublisher, error) {
 func (p *KafkaPublisher) PublishNotificationCreated(ctx context.Context, event events.NotificationCreated) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
+		logger.Error().Err(err).Msg("notification-service failed to marshal NotificationCreated event")
 		return err
 	}
 
-	log.Printf("[notification-service] publish NotificationCreated to Kafka topic %s: %s", events.TopicNotificationCreated, string(payload))
-
-	return p.writer.WriteMessages(ctx, kafka.Message{
+	if err := p.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(event.NotificationID),
 		Value: payload,
-	})
+	}); err != nil {
+		logger.Error().Err(err).Msg("notification-service failed to publish NotificationCreated event")
+		return err
+	}
+
+	logger.Info().
+		Str("topic", events.TopicNotificationCreated).
+		Str("notification_id", event.NotificationID).
+		Msg("notification-service published NotificationCreated event")
+	return nil
 }
 
 func (p *KafkaPublisher) Close() error {

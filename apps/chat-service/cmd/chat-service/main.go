@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	"golang-social-media/apps/chat-service/internal/application/messages"
 	"golang-social-media/apps/chat-service/internal/infrastructure/eventbus"
@@ -11,6 +11,7 @@ import (
 	chatgrpc "golang-social-media/apps/chat-service/internal/interfaces/grpc/chat"
 	"golang-social-media/pkg/config"
 	chatv1 "golang-social-media/pkg/gen/chat/v1"
+	"golang-social-media/pkg/logger"
 
 	"google.golang.org/grpc"
 	"gorm.io/driver/postgres"
@@ -23,18 +24,20 @@ func main() {
 	brokers := config.GetEnvStringSlice("KAFKA_BROKERS", []string{"localhost:9092"})
 	publisher, err := eventbus.NewKafkaPublisher(brokers)
 	if err != nil {
-		log.Fatalf("failed to create kafka publisher: %v", err)
+		logger.Error().Err(err).Msg("failed to create kafka publisher")
+		os.Exit(1)
 	}
 	defer func() {
 		if err := publisher.Close(); err != nil {
-			log.Printf("failed to close kafka publisher: %v", err)
+			logger.Error().Err(err).Msg("failed to close kafka publisher")
 		}
 	}()
 
 	dsn := config.GetEnv("CHAT_DATABASE_DSN", "postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("failed to connect database: %v", err)
+		logger.Error().Err(err).Msg("failed to connect database")
+		os.Exit(1)
 	}
 	messageRepository := persistence.NewMessageRepository(db)
 	messageService := messages.NewService(messageRepository, publisher)
@@ -46,6 +49,7 @@ func main() {
 		handler := chatgrpc.NewHandler(messageService)
 		chatv1.RegisterChatServiceServer(server, handler)
 	}); err != nil {
-		log.Fatalf("failed to serve gRPC: %v", err)
+		logger.Error().Err(err).Msg("failed to start gRPC server")
+		os.Exit(1)
 	}
 }

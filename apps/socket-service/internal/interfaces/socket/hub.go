@@ -1,12 +1,12 @@
 package socket
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"golang-social-media/pkg/events"
+	"golang-social-media/pkg/logger"
 )
 
 type Hub struct {
@@ -25,15 +25,15 @@ func (h *Hub) RegisterRoutes(router *gin.Engine) {
 	router.GET("/ws", func(c *gin.Context) {
 		conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			log.Printf("failed to upgrade websocket: %v", err)
+			logger.Error().Err(err).Msg("socket-service failed to upgrade websocket")
 			return
 		}
 		defer conn.Close()
 
-		log.Println("socket connected")
+		logger.Info().Msg("socket connected")
 		for {
 			if _, _, err := conn.NextReader(); err != nil {
-				log.Printf("socket closed: %v", err)
+				logger.Info().Err(err).Msg("socket connection closed")
 				break
 			}
 		}
@@ -41,11 +41,17 @@ func (h *Hub) RegisterRoutes(router *gin.Engine) {
 }
 
 func (h *Hub) BroadcastChatCreated(event events.ChatCreated) {
-	log.Printf("[socket-service] broadcast ChatCreated: %+v", event)
+	logger.Info().
+		Str("topic", events.TopicChatCreated).
+		Str("message_id", event.Message.ID).
+		Msg("socket broadcast chat update")
 	// TODO: push to connected clients
 }
 
 func (h *Hub) BroadcastNotificationCreated(event events.NotificationCreated) {
-	log.Printf("[socket-service] broadcast NotificationCreated: %+v", event)
+	logger.Info().
+		Str("topic", events.TopicNotificationCreated).
+		Str("notification_id", event.NotificationID).
+		Msg("socket broadcast notification update")
 	// TODO: push to connected clients
 }

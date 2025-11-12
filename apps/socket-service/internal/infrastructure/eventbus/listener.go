@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 
-	"golang-social-media/pkg/events"
-	appevents "golang-social-media/apps/socket-service/internal/application/events"
 	"github.com/segmentio/kafka-go"
+	appevents "golang-social-media/apps/socket-service/internal/application/events"
+	"golang-social-media/pkg/events"
+	"golang-social-media/pkg/logger"
 )
 
 type Listener struct {
@@ -28,8 +28,6 @@ func NewListener(brokers []string, chatGroupID, notificationGroupID string, serv
 		return nil, errors.New("notificationGroupID must be provided")
 	}
 
-	log.Printf("[socket-service] initializing kafka listeners with brokers: %v, chat group: %s, notification group: %s", brokers, chatGroupID, notificationGroupID)
-
 	chatReader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: brokers,
 		GroupID: chatGroupID,
@@ -42,6 +40,12 @@ func NewListener(brokers []string, chatGroupID, notificationGroupID string, serv
 		Topic:   events.TopicNotificationCreated,
 	})
 
+	logger.Info().
+		Strs("brokers", brokers).
+		Str("chat_group", chatGroupID).
+		Str("notification_group", notificationGroupID).
+		Msg("socket-service kafka listeners configured")
+
 	return &Listener{
 		service:            service,
 		chatReader:         chatReader,
@@ -50,7 +54,7 @@ func NewListener(brokers []string, chatGroupID, notificationGroupID string, serv
 }
 
 func (l *Listener) Start(ctx context.Context) {
-	log.Println("[socket-service] starting Kafka listeners")
+	logger.Info().Msg("socket-service starting Kafka listeners")
 	go l.consumeChatCreated(ctx)
 	go l.consumeNotificationCreated(ctx)
 }
@@ -60,21 +64,21 @@ func (l *Listener) consumeChatCreated(ctx context.Context) {
 		msg, err := l.chatReader.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, kafka.ErrGroupClosed) {
-				log.Println("[socket-service] chat listener shutting down")
+				logger.Info().Msg("socket-service chat listener shutting down")
 				return
 			}
-			log.Printf("[socket-service] chat listener error: %v", err)
+			logger.Error().Err(err).Msg("socket-service chat listener error")
 			continue
 		}
 
 		var event events.ChatCreated
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
-			log.Printf("[socket-service] failed to decode ChatCreated event: %v", err)
+			logger.Error().Err(err).Msg("socket-service failed to decode ChatCreated event")
 			continue
 		}
 
 		if err := l.service.HandleChatCreated(ctx, event); err != nil {
-			log.Printf("[socket-service] failed to handle ChatCreated event: %v", err)
+			logger.Error().Err(err).Msg("socket-service failed to handle ChatCreated event")
 		}
 	}
 }
@@ -84,21 +88,21 @@ func (l *Listener) consumeNotificationCreated(ctx context.Context) {
 		msg, err := l.notificationReader.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, kafka.ErrGroupClosed) {
-				log.Println("[socket-service] notification listener shutting down")
+				logger.Info().Msg("socket-service notification listener shutting down")
 				return
 			}
-			log.Printf("[socket-service] notification listener error: %v", err)
+			logger.Error().Err(err).Msg("socket-service notification listener error")
 			continue
 		}
 
 		var event events.NotificationCreated
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
-			log.Printf("[socket-service] failed to decode NotificationCreated event: %v", err)
+			logger.Error().Err(err).Msg("socket-service failed to decode NotificationCreated event")
 			continue
 		}
 
 		if err := l.service.HandleNotificationCreated(ctx, event); err != nil {
-			log.Printf("[socket-service] failed to handle NotificationCreated event: %v", err)
+			logger.Error().Err(err).Msg("socket-service failed to handle NotificationCreated event")
 		}
 	}
 }

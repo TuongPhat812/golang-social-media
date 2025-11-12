@@ -24,6 +24,7 @@ For a concrete example, see `.cursor/dev/features/chat/create-chat.md` which fol
 - If you need to inspect Kafka topics, exec into the Kafka container (`docker exec -it gsm-kafka bash`) và dùng `kafka-console-consumer.sh`.
 - Cần xem DB? `docker exec -it gsm-postgres psql -U chat_user -d chat_service`.
 - Quản lý migration: `cd apps/chat-service && go run ./cmd/migrate [create|up|down]`.
+- Quan sát log: Promtail đọc `/var/log/app/*.log` (mount từ `./logs`). Truy cập Grafana `http://localhost:3000` (admin/admin) và thêm nguồn dữ liệu Loki (`http://loki:3100`).
 
 ---
 **Need to modify or extend?**

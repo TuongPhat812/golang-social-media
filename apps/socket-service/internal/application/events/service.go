@@ -2,9 +2,9 @@ package events
 
 import (
 	"context"
-	"log"
 
 	"golang-social-media/pkg/events"
+	"golang-social-media/pkg/logger"
 )
 
 type Broadcaster interface {
@@ -26,13 +26,19 @@ func NewService(broadcaster Broadcaster) Service {
 }
 
 func (s *service) HandleChatCreated(ctx context.Context, event events.ChatCreated) error {
-	log.Printf("[socket-service] received ChatCreated event: %+v", event)
+	logger.Info().
+		Str("topic", events.TopicChatCreated).
+		Str("message_id", event.Message.ID).
+		Msg("socket-service received ChatCreated event")
 	s.broadcaster.BroadcastChatCreated(event)
 	return nil
 }
 
 func (s *service) HandleNotificationCreated(ctx context.Context, event events.NotificationCreated) error {
-	log.Printf("[socket-service] received NotificationCreated event: %+v", event)
+	logger.Info().
+		Str("topic", events.TopicNotificationCreated).
+		Str("notification_id", event.NotificationID).
+		Msg("socket-service received NotificationCreated event")
 	s.broadcaster.BroadcastNotificationCreated(event)
 	return nil
 }

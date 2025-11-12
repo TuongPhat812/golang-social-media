@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/gin-gonic/gin"
-	"golang-social-media/pkg/config"
 	appevents "golang-social-media/apps/socket-service/internal/application/events"
 	"golang-social-media/apps/socket-service/internal/infrastructure/eventbus"
 	"golang-social-media/apps/socket-service/internal/interfaces/socket"
+	"golang-social-media/pkg/config"
+	"golang-social-media/pkg/logger"
 )
 
 func main() {
@@ -31,11 +32,12 @@ func main() {
 		eventService,
 	)
 	if err != nil {
-		log.Fatalf("failed to create kafka listener: %v", err)
+		logger.Error().Err(err).Msg("failed to create socket kafka listener")
+		os.Exit(1)
 	}
 	defer func() {
 		if err := listener.Close(); err != nil {
-			log.Printf("failed to close kafka listener: %v", err)
+			logger.Error().Err(err).Msg("failed to close socket kafka listener")
 		}
 	}()
 
@@ -47,8 +49,9 @@ func main() {
 	port := config.GetEnvInt("SOCKET_SERVICE_PORT", 9200)
 	addr := fmt.Sprintf(":%d", port)
 
-	log.Printf("socket service starting on %s", addr)
+	logger.Info().Str("addr", addr).Msg("socket service starting")
 	if err := router.Run(addr); err != nil {
-		log.Fatalf("failed to start socket service: %v", err)
+		logger.Error().Err(err).Msg("failed to start socket service")
+		os.Exit(1)
 	}
 }

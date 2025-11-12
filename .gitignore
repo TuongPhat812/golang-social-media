@@ -45,6 +45,7 @@ node_modules/
 *.db
 *.sqlite
 *.bak
+logs/
 
 # Service binaries (go build)
 apps/*/chat-service

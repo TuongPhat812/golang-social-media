@@ -9,6 +9,7 @@ services:
     environment:
       - GOTOOLCHAIN=auto
       - CHAT_SERVICE_ADDR=chat-service:9000
+      - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
     ports:
@@ -29,6 +30,7 @@ services:
       - GOTOOLCHAIN=auto
       - KAFKA_BROKERS=kafka:9092
       - CHAT_DATABASE_DSN=postgres://chat_user:chat_password@gsm-postgres:5432/chat_service?sslmode=disable
+      - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
     ports:
@@ -45,6 +47,7 @@ services:
       - GOTOOLCHAIN=auto
       - KAFKA_BROKERS=kafka:9092
       - NOTIFICATION_CHAT_GROUP_ID=notification-service-chat
+      - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
     ports:
@@ -62,6 +65,7 @@ services:
       - KAFKA_BROKERS=kafka:9092
       - SOCKET_CHAT_GROUP_ID=socket-service-chat
       - SOCKET_NOTIFICATION_GROUP_ID=socket-service-notification
+      - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
     ports:

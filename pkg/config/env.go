@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -9,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/joho/godotenv"
+	"golang-social-media/pkg/logger"
 )
 
 var loadOnce sync.Once
@@ -27,7 +27,7 @@ func LoadEnv(filenames ...string) {
 			}
 			if _, err := os.Stat(file); err == nil {
 				if err := godotenv.Load(file); err != nil {
-					log.Printf("config: unable to load env file %s: %v", file, err)
+					logger.Error().Err(err).Str("file", file).Msg("config unable to load env file")
 				}
 				return
 			}
@@ -49,7 +49,10 @@ func GetEnvInt(key string, fallback int) int {
 		if parsed, err := strconv.Atoi(value); err == nil {
 			return parsed
 		}
-		log.Printf("config: invalid integer for %s: %v", key, value)
+		logger.Error().
+			Str("key", key).
+			Str("value", value).
+			Msg("config invalid integer env value")
 	}
 	return fallback
 }

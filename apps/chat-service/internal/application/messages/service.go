@@ -6,6 +6,7 @@ import (
 
 	domain "golang-social-media/apps/chat-service/internal/domain/message"
 	"golang-social-media/pkg/events"
+	"golang-social-media/pkg/logger"
 
 	"github.com/google/uuid"
 )
@@ -41,6 +42,7 @@ func (s *service) CreateMessage(ctx context.Context, senderID, receiverID, conte
 	}
 
 	if err := s.repository.Create(ctx, &msg); err != nil {
+		logger.Error().Err(err).Msg("failed to persist chat message")
 		return msg, err
 	}
 
@@ -55,8 +57,15 @@ func (s *service) CreateMessage(ctx context.Context, senderID, receiverID, conte
 		CreatedAt: createdAt,
 	}
 	if err := s.eventPublisher.PublishChatCreated(ctx, event); err != nil {
+		logger.Error().Err(err).Msg("failed to publish ChatCreated event")
 		return msg, err
 	}
+
+	logger.Info().
+		Str("message_id", msg.ID).
+		Str("sender_id", msg.SenderID).
+		Str("receiver_id", msg.ReceiverID).
+		Msg("chat message created and event published")
 
 	return msg, nil
 }

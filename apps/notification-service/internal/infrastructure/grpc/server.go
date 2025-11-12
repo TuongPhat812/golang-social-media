@@ -1,9 +1,9 @@
 package grpc
 
 import (
-	"log"
 	"net"
 
+	"golang-social-media/pkg/logger"
 	"google.golang.org/grpc"
 )
 
@@ -18,6 +18,6 @@ func Start(addr string, register func(*grpc.Server)) error {
 		register(server)
 	}
 
-	log.Printf("notification service gRPC server starting on %s", addr)
+	logger.Info().Str("addr", addr).Msg("notification-service gRPC server starting")
 	return server.Serve(listener)
 }
