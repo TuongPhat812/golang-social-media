@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/myself/golang-social-media/pkg/events"
+	"golang-social-media/pkg/events"
 )
 
 type Hub struct {

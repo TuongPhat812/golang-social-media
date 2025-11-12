@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	domain "github.com/myself/golang-social-media/apps/chat-service/internal/domain/message"
-	"github.com/myself/golang-social-media/pkg/events"
+	domain "golang-social-media/apps/chat-service/internal/domain/message"
+	"golang-social-media/pkg/events"
 )
 
 type EventPublisher interface {

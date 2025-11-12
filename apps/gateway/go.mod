@@ -1,10 +1,10 @@
-module github.com/myself/golang-social-media/apps/gateway
+module golang-social-media/apps/gateway
 
 go 1.25.3
 
 require (
 	github.com/gin-gonic/gin v1.11.0
-	github.com/myself/golang-social-media/pkg v0.0.0
+	golang-social-media/pkg v0.0.0
 	google.golang.org/grpc v1.76.0
 )
 
@@ -44,4 +44,4 @@ require (
 	google.golang.org/protobuf v1.36.9 // indirect
 )
 
-replace github.com/myself/golang-social-media/pkg => ../../pkg
+replace golang-social-media/pkg => ../../pkg

@@ -1,6 +1,6 @@
 package users
 
-import domain "github.com/myself/golang-social-media/apps/gateway/internal/domain/user"
+import domain "golang-social-media/apps/gateway/internal/domain/user"
 
 type Service interface {
 	SampleUser() domain.User

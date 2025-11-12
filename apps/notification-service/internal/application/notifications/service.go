@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	domainuser "github.com/myself/golang-social-media/apps/notification-service/internal/domain/user"
-	"github.com/myself/golang-social-media/pkg/events"
+	domainuser "golang-social-media/apps/notification-service/internal/domain/user"
+	"golang-social-media/pkg/events"
 )
 
 type EventPublisher interface {

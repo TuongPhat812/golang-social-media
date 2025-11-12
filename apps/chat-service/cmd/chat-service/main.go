@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/myself/golang-social-media/apps/chat-service/internal/application/messages"
-	"github.com/myself/golang-social-media/apps/chat-service/internal/infrastructure/eventbus"
-	grpcserver "github.com/myself/golang-social-media/apps/chat-service/internal/infrastructure/grpc"
-	chatgrpc "github.com/myself/golang-social-media/apps/chat-service/internal/interfaces/grpc/chat"
-	"github.com/myself/golang-social-media/pkg/config"
-	chatv1 "github.com/myself/golang-social-media/pkg/gen/chat/v1"
+	"golang-social-media/apps/chat-service/internal/application/messages"
+	"golang-social-media/apps/chat-service/internal/infrastructure/eventbus"
+	grpcserver "golang-social-media/apps/chat-service/internal/infrastructure/grpc"
+	chatgrpc "golang-social-media/apps/chat-service/internal/interfaces/grpc/chat"
+	"golang-social-media/pkg/config"
+	chatv1 "golang-social-media/pkg/gen/chat/v1"
 	"google.golang.org/grpc"
 )
 

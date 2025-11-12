@@ -1,4 +1,4 @@
-module github.com/myself/golang-social-media/pkg
+module golang-social-media/pkg
 
 go 1.25.3
 

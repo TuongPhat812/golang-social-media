@@ -3,7 +3,7 @@ package grpc
 import (
 	"log"
 
-	"github.com/myself/golang-social-media/apps/notification-service/internal/application/notifications"
+	"golang-social-media/apps/notification-service/internal/application/notifications"
 	"google.golang.org/grpc"
 )
 

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/myself/golang-social-media/pkg/events"
+	"golang-social-media/pkg/events"
 	"github.com/segmentio/kafka-go"
 )
 

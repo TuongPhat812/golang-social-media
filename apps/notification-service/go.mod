@@ -1,10 +1,10 @@
-module github.com/myself/golang-social-media/apps/notification-service
+module golang-social-media/apps/notification-service
 
 go 1.25.3
 
 require (
-	github.com/myself/golang-social-media/pkg v0.0.0
 	github.com/segmentio/kafka-go v0.4.45
+	golang-social-media/pkg v0.0.0
 	google.golang.org/grpc v1.76.0
 )
 
@@ -20,4 +20,4 @@ require (
 	google.golang.org/protobuf v1.36.9 // indirect
 )
 
-replace github.com/myself/golang-social-media/pkg => ../../pkg
+replace golang-social-media/pkg => ../../pkg

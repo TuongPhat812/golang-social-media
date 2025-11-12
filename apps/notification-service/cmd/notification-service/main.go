@@ -7,11 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/myself/golang-social-media/pkg/config"
-	"github.com/myself/golang-social-media/apps/notification-service/internal/application/notifications"
-	"github.com/myself/golang-social-media/apps/notification-service/internal/infrastructure/eventbus"
-	grpcserver "github.com/myself/golang-social-media/apps/notification-service/internal/infrastructure/grpc"
-	interfaces "github.com/myself/golang-social-media/apps/notification-service/internal/interfaces/grpc"
+	"golang-social-media/pkg/config"
+	"golang-social-media/apps/notification-service/internal/application/notifications"
+	"golang-social-media/apps/notification-service/internal/infrastructure/eventbus"
+	grpcserver "golang-social-media/apps/notification-service/internal/infrastructure/grpc"
+	interfaces "golang-social-media/apps/notification-service/internal/interfaces/grpc"
 	"google.golang.org/grpc"
 )
 

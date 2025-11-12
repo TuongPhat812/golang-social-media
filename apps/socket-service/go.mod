@@ -1,12 +1,12 @@
-module github.com/myself/golang-social-media/apps/socket-service
+module golang-social-media/apps/socket-service
 
 go 1.25.3
 
 require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gorilla/websocket v1.5.1
-	github.com/myself/golang-social-media/pkg v0.0.0
 	github.com/segmentio/kafka-go v0.4.45
+	golang-social-media/pkg v0.0.0
 )
 
 require (
@@ -46,4 +46,4 @@ require (
 	google.golang.org/protobuf v1.36.9 // indirect
 )
 
-replace github.com/myself/golang-social-media/pkg => ../../pkg
+replace golang-social-media/pkg => ../../pkg

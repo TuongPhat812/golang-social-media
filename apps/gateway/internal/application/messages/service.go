@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	domain "github.com/myself/golang-social-media/apps/gateway/internal/domain/message"
-	chatv1 "github.com/myself/golang-social-media/pkg/gen/chat/v1"
+	domain "golang-social-media/apps/gateway/internal/domain/message"
+	chatv1 "golang-social-media/pkg/gen/chat/v1"
+
 	"google.golang.org/grpc"
 )
 

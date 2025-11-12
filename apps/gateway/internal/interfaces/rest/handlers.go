@@ -3,9 +3,10 @@ package rest
 import (
 	"net/http"
 
+	"golang-social-media/apps/gateway/internal/application/messages"
+	"golang-social-media/apps/gateway/internal/application/users"
+
 	"github.com/gin-gonic/gin"
-	"github.com/myself/golang-social-media/apps/gateway/internal/application/messages"
-	"github.com/myself/golang-social-media/apps/gateway/internal/application/users"
 )
 
 type createMessageRequest struct {

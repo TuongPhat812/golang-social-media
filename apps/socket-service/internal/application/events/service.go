@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/myself/golang-social-media/pkg/events"
+	"golang-social-media/pkg/events"
 )
 
 type Broadcaster interface {

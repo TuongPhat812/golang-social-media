@@ -3,8 +3,8 @@ package chat
 import (
 	"context"
 
-	"github.com/myself/golang-social-media/apps/chat-service/internal/application/messages"
-	chatv1 "github.com/myself/golang-social-media/pkg/gen/chat/v1"
+	"golang-social-media/apps/chat-service/internal/application/messages"
+	chatv1 "golang-social-media/pkg/gen/chat/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

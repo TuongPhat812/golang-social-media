@@ -8,10 +8,10 @@ import (
 	"syscall"
 
 	"github.com/gin-gonic/gin"
-	"github.com/myself/golang-social-media/pkg/config"
-	appevents "github.com/myself/golang-social-media/apps/socket-service/internal/application/events"
-	"github.com/myself/golang-social-media/apps/socket-service/internal/infrastructure/eventbus"
-	"github.com/myself/golang-social-media/apps/socket-service/internal/interfaces/socket"
+	"golang-social-media/pkg/config"
+	appevents "golang-social-media/apps/socket-service/internal/application/events"
+	"golang-social-media/apps/socket-service/internal/infrastructure/eventbus"
+	"golang-social-media/apps/socket-service/internal/interfaces/socket"
 )
 
 func main() {

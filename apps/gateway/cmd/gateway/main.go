@@ -7,11 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/myself/golang-social-media/pkg/config"
-	"github.com/myself/golang-social-media/apps/gateway/internal/application/messages"
-	"github.com/myself/golang-social-media/apps/gateway/internal/application/users"
-	chatclient "github.com/myself/golang-social-media/apps/gateway/internal/infrastructure/grpc/chat"
-	httpserver "github.com/myself/golang-social-media/apps/gateway/internal/infrastructure/http"
+	"golang-social-media/apps/gateway/internal/application/messages"
+	"golang-social-media/apps/gateway/internal/application/users"
+	chatclient "golang-social-media/apps/gateway/internal/infrastructure/grpc/chat"
+	httpserver "golang-social-media/apps/gateway/internal/infrastructure/http"
+	"golang-social-media/pkg/config"
 )
 
 func main() {
