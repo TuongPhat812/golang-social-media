@@ -7,10 +7,14 @@ import (
 	"golang-social-media/apps/chat-service/internal/application/messages"
 	"golang-social-media/apps/chat-service/internal/infrastructure/eventbus"
 	grpcserver "golang-social-media/apps/chat-service/internal/infrastructure/grpc"
+	"golang-social-media/apps/chat-service/internal/infrastructure/persistence"
 	chatgrpc "golang-social-media/apps/chat-service/internal/interfaces/grpc/chat"
 	"golang-social-media/pkg/config"
 	chatv1 "golang-social-media/pkg/gen/chat/v1"
+
 	"google.golang.org/grpc"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -27,9 +31,17 @@ func main() {
 		}
 	}()
 
-	messageService := messages.NewService(publisher)
-	sample := messageService.SampleMessage()
-	log.Printf("chat service ready with sample message: %+v", sample)
+	dsn := config.GetEnv("CHAT_DATABASE_DSN", "postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable")
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("failed to connect database: %v", err)
+	}
+	if err := db.AutoMigrate(&persistence.MessageModel{}); err != nil {
+		log.Fatalf("failed to auto-migrate message schema: %v", err)
+	}
+
+	messageRepository := persistence.NewMessageRepository(db)
+	messageService := messages.NewService(messageRepository, publisher)
 
 	port := config.GetEnvInt("CHAT_SERVICE_PORT", 9000)
 	addr := fmt.Sprintf(":%d", port)

@@ -28,6 +28,7 @@ services:
     environment:
       - GOTOOLCHAIN=auto
       - KAFKA_BROKERS=kafka:9092
+      - CHAT_DATABASE_DSN=postgres://chat_user:chat_password@gsm-postgres:5432/chat_service?sslmode=disable
     volumes:
       - ./:/app
     ports:

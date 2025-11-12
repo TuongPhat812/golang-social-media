@@ -45,3 +45,9 @@ node_modules/
 *.db
 *.sqlite
 *.bak
+
+# Service binaries (go build)
+apps/*/chat-service
+apps/*/gateway
+apps/*/notification-service
+apps/*/socket-service

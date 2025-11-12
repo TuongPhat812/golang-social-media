@@ -15,7 +15,7 @@ This repository is organised as a mono-repo with four Go services under `apps/` 
 ```
 
 - `apps/gateway`: Gin HTTP gateway orchestrating downstream calls.
-- `apps/chat-service`: gRPC service creating chat messages and emitting Kafka events.
+- `apps/chat-service`: gRPC service creating chat messages, persisting them in Postgres, and emitting Kafka events.
 - `apps/notification-service`: gRPC service consuming chat events, creating notifications, and emitting follow-up events.
 - `apps/socket-service`: WebSocket service broadcasting events to connected clients.
 - `pkg`: Reusable packages (`config`, `events`, protobuf stubs under `pkg/gen`, …).
@@ -34,7 +34,7 @@ Every service exposes its entrypoint under `apps/<service>/cmd/<service>/main.go
     └── interfaces/                # Transport layers (HTTP, gRPC, WebSocket, etc.)
 ```
 
-Shared packages now live in `pkg/` so services can import `github.com/<org>/golang-social-media/pkg/<package>`.
+Shared packages now live in `pkg/` so services can import `golang-social-media/pkg/<package>`.
 
 ### Protobuf Contracts
 
@@ -44,7 +44,7 @@ Shared packages now live in `pkg/` so services can import `github.com/<org>/gola
 - Regenerate Go code with:
 
   ```bash
-  protoc --proto_path=proto --go_out=. --go-grpc_out=. proto/chat/v1/chat_service.proto
+  make proto
   ```
 
 ## Docker Compose Setup
@@ -61,7 +61,7 @@ cd /home/ubuntu/Workspace/myself/golang-social-media
 docker compose -f docker-compose.infra.yml up -d
 ```
 
-This creates the shared `gsm-network` and exposes Kafka on `kafka:9092` for other containers and `localhost:9094` for host clients.
+This brings up Postgres and Kafka on the shared `gsm-network`. Postgres exposes `localhost:5432` (for host clients) and the DNS name `gsm-postgres:5432` inside the Docker network. Kafka remains available on `kafka:9092` (containers) and `localhost:9092` (host).
 
 ### Start Application Services
 
@@ -70,7 +70,7 @@ cd /home/ubuntu/Workspace/myself/golang-social-media
 docker compose -f docker-compose.app.yml up --build
 ```
 
-Each service runs with code mounted from the host, using Go's `GOTOOLCHAIN=auto` to pull the correct toolchain. The containers connect to Kafka through the shared Docker network.
+Each service runs with code mounted from the host, using Go's `GOTOOLCHAIN=auto` to pull the correct toolchain. The containers connect to Kafka and Postgres through the shared Docker network.
 
 Stop everything with:
 
@@ -100,6 +100,25 @@ cd apps/gateway && go run ./cmd/gateway
 ```
 
 Override any setting by exporting it before launch, for example `export KAFKA_BROKERS=localhost:9094`.
+
+## Database & Migrations
+
+- Chat-service connects to Postgres using the `CHAT_DATABASE_DSN` environment variable (defaults to `postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable`).
+- GORM automatically runs `AutoMigrate` for the `messages` table on service start.
+- Versioned SQL migrations live in `apps/chat-service/migrations`. Install the CLI via `brew install golang-migrate` or download from the releases page. Helpful commands:
+
+  ```bash
+  # create a new migration (NAME is required)
+  make migration-create NAME=add_new_table
+
+  # apply migrations (uses CHAT_DB_DSN or defaults to local postgres)
+  make migration-up
+
+  # rollback one step
+  make migration-down
+  ```
+
+  Then edit the generated `.up.sql` / `.down.sql` files.
 
 ## Development Notes
 

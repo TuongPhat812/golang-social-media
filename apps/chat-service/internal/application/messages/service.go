@@ -6,6 +6,8 @@ import (
 
 	domain "golang-social-media/apps/chat-service/internal/domain/message"
 	"golang-social-media/pkg/events"
+
+	"github.com/google/uuid"
 )
 
 type EventPublisher interface {
@@ -14,25 +16,32 @@ type EventPublisher interface {
 
 type Service interface {
 	CreateMessage(ctx context.Context, senderID, receiverID, content string) (domain.Message, error)
-	SampleMessage() domain.Message
 }
 
 type service struct {
-	publisher EventPublisher
+	repository     Repository
+	eventPublisher EventPublisher
 }
 
-func NewService(publisher EventPublisher) Service {
-	return &service{publisher: publisher}
+func NewService(repository Repository, eventPublisher EventPublisher) Service {
+	return &service{
+		repository:     repository,
+		eventPublisher: eventPublisher,
+	}
 }
 
 func (s *service) CreateMessage(ctx context.Context, senderID, receiverID, content string) (domain.Message, error) {
 	createdAt := time.Now().UTC()
 	msg := domain.Message{
-		ID:         "msg-" + createdAt.Format("20060102150405"),
+		ID:         uuid.NewString(),
 		SenderID:   senderID,
 		ReceiverID: receiverID,
 		Content:    content,
 		CreatedAt:  createdAt,
+	}
+
+	if err := s.repository.Create(ctx, &msg); err != nil {
+		return msg, err
 	}
 
 	event := events.ChatCreated{
@@ -45,14 +54,9 @@ func (s *service) CreateMessage(ctx context.Context, senderID, receiverID, conte
 		},
 		CreatedAt: createdAt,
 	}
-	if err := s.publisher.PublishChatCreated(ctx, event); err != nil {
+	if err := s.eventPublisher.PublishChatCreated(ctx, event); err != nil {
 		return msg, err
 	}
 
 	return msg, nil
-}
-
-func (s *service) SampleMessage() domain.Message {
-	now := time.Now().UTC()
-	return domain.Message{ID: "sample", SenderID: "user-1", ReceiverID: "user-2", Content: "hello", CreatedAt: now}
 }

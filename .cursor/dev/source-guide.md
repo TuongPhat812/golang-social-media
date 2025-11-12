@@ -8,7 +8,7 @@
 Understanding these shared pieces gives context before diving into any service.
 
 ## 2. Follow the Event Flow
-For a concrete example, see `.cursor/dev/features/chat/create-chat.md` which follows the end-to-end chat creation flow.
+For a concrete example, see `.cursor/dev/features/chat/create-chat.md` which follows the end-to-end chat creation flow including database persistence and Kafka side effects.
 
 ## 3. Domain Placement
 - Each service holds its own `internal/domain/*` package to prevent cross-service coupling.
@@ -16,12 +16,13 @@ For a concrete example, see `.cursor/dev/features/chat/create-chat.md` which fol
 
 ## 4. Configuration & Environment
 - `.env` is auto-loaded; inspect it if behaviour looks wrong.
-- Services read `KAFKA_BROKERS`, `*_PORT`, and consumer group IDs. Check `pkg/config/env.go` for parsing behavior.
+- Services read `KAFKA_BROKERS`, `*_PORT`, consumer group IDs, and now `CHAT_DATABASE_DSN` for Postgres. Check `pkg/config/env.go` for parsing behavior.
 
 ## 5. Running / Debugging Tips
 - Use the log statements added to Kafka publishers/subscribers to confirm which broker each service uses.
 - For quick testing, run a single POST request and observe logs across services.
 - If you need to inspect Kafka topics, exec into the Kafka container (`docker exec -it gsm-kafka bash`) and use `kafka-console-consumer.sh`.
+- Need to peek at the database? `docker exec -it gsm-postgres psql -U chat_user -d chat_service`.
 
 ---
 **Need to modify or extend?**
