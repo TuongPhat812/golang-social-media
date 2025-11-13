@@ -9,10 +9,15 @@ import (
 	"strings"
 	"syscall"
 
-	"golang-social-media/apps/gateway/internal/application/messages"
-	"golang-social-media/apps/gateway/internal/application/users"
+	appcommand "golang-social-media/apps/gateway/internal/application/command"
+	commandcontracts "golang-social-media/apps/gateway/internal/application/command/contracts"
+	appquery "golang-social-media/apps/gateway/internal/application/query"
+	querycontracts "golang-social-media/apps/gateway/internal/application/query/contracts"
+	authclient "golang-social-media/apps/gateway/internal/infrastructure/auth"
 	chatclient "golang-social-media/apps/gateway/internal/infrastructure/grpc/chat"
 	httpserver "golang-social-media/apps/gateway/internal/infrastructure/http"
+	commandrest "golang-social-media/apps/gateway/internal/interfaces/rest/command"
+	queryrest "golang-social-media/apps/gateway/internal/interfaces/rest/query"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
 
@@ -56,10 +61,20 @@ func main() {
 		}
 	}()
 
-	userService := users.NewService()
-	messageService := messages.NewService(chatClient, logger.Component("gateway.messages"))
+	authBaseURL := config.GetEnv("AUTH_SERVICE_URL", "http://localhost:9101")
+	authClient := authclient.NewClient(authBaseURL)
 
-	router := httpserver.NewRouter(userService, messageService)
+	createMessageCommand := appcommand.NewCreateMessageCommand(chatClient)
+	registerUserCommand := appcommand.NewRegisterUserCommand(authClient)
+	loginUserCommand := appcommand.NewLoginUserCommand(authClient)
+	getUserProfileQuery := appquery.NewGetUserProfileQuery(authClient)
+
+	router := buildRouter(
+		createMessageCommand,
+		registerUserCommand,
+		loginUserCommand,
+		getUserProfileQuery,
+	)
 
 	port := config.GetEnvInt("GATEWAY_PORT", 8080)
 	addr := fmt.Sprintf(":%d", port)
@@ -75,4 +90,23 @@ func main() {
 			Msg("failed to start gateway")
 		os.Exit(1)
 	}
+}
+
+func buildRouter(
+	createMessage commandcontracts.CreateMessageCommand,
+	registerUser commandcontracts.RegisterUserCommand,
+	loginUser commandcontracts.LoginUserCommand,
+	getUserProfile querycontracts.GetUserProfileQuery,
+) *gin.Engine {
+	createMessageHTTP := commandrest.NewCreateMessageHTTPHandler(createMessage)
+	registerUserHTTP := commandrest.NewRegisterUserHTTPHandler(registerUser)
+	loginUserHTTP := commandrest.NewLoginUserHTTPHandler(loginUser)
+	getUserProfileHTTP := queryrest.NewGetUserProfileHTTPHandler(getUserProfile)
+
+	return httpserver.NewRouter(
+		registerUserHTTP,
+		loginUserHTTP,
+		createMessageHTTP,
+		getUserProfileHTTP,
+	)
 }

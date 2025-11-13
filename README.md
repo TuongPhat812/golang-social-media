@@ -15,6 +15,7 @@ This repository is organised as a mono-repo with four Go services under `apps/` 
 ```
 
 - `apps/gateway`: Gin HTTP gateway orchestrating downstream calls.
+- `apps/auth-service`: HTTP service responsible for user registration/login/profile.
 - `apps/chat-service`: gRPC service creating chat messages, persisting them in Postgres, and emitting Kafka events.
 - `apps/notification-service`: gRPC service consuming chat events, creating notifications, and emitting follow-up events.
 - `apps/socket-service`: WebSocket service broadcasting events to connected clients.
@@ -145,5 +146,6 @@ Override any setting by exporting it before launch, for example `export KAFKA_BR
 - Gateway-specific environment flags:
   - `GIN_MODE=release` (or `debug`/`test`) to control Gin’s mode.
   - `GIN_DISABLE_ACCESS_LOG=true` hides Gin’s access log noise (e.g. per-request HTTP logs). Leave unset or `false` to keep the default output.
+  - `AUTH_SERVICE_URL` sets the base URL for the auth service REST API (defaults to `http://localhost:9101`).
 
 Future work will flesh out persistence, authentication, and real-time delivery handlers while keeping the DDD boundaries intact.
