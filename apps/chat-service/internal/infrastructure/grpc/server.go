@@ -18,6 +18,9 @@ func Start(addr string, register func(*grpc.Server)) error {
 		register(server)
 	}
 
-	logger.Info().Str("addr", addr).Msg("chat-service gRPC server starting")
+	logger.Component("chat.grpc").
+		Info().
+		Str("addr", addr).
+		Msg("chat-service gRPC server starting")
 	return server.Serve(listener)
 }

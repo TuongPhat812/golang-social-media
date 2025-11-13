@@ -26,7 +26,8 @@ func NewKafkaPublisher(brokers []string) (*KafkaPublisher, error) {
 		Balancer: &kafka.LeastBytes{},
 	}
 
-	logger.Info().
+	logger.Component("chat.eventbus").
+		Info().
 		Strs("brokers", brokers).
 		Msg("chat-service kafka publisher initialized")
 
@@ -36,7 +37,10 @@ func NewKafkaPublisher(brokers []string) (*KafkaPublisher, error) {
 func (p *KafkaPublisher) PublishChatCreated(ctx context.Context, event events.ChatCreated) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to marshal chat created event")
+		logger.Component("chat.eventbus").
+			Error().
+			Err(err).
+			Msg("failed to marshal chat created event")
 		return err
 	}
 
@@ -44,11 +48,15 @@ func (p *KafkaPublisher) PublishChatCreated(ctx context.Context, event events.Ch
 		Key:   []byte(event.Message.ID),
 		Value: payload,
 	}); err != nil {
-		logger.Error().Err(err).Msg("failed to publish chat created event")
+		logger.Component("chat.eventbus").
+			Error().
+			Err(err).
+			Msg("failed to publish chat created event")
 		return err
 	}
 
-	logger.Info().
+	logger.Component("chat.eventbus").
+		Info().
 		Str("topic", events.TopicChatCreated).
 		Str("message_id", event.Message.ID).
 		Msg("published ChatCreated event")

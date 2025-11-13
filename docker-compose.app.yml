@@ -9,9 +9,11 @@ services:
     environment:
       - GOTOOLCHAIN=auto
       - CHAT_SERVICE_ADDR=chat-service:9000
+      - GIN_DISABLE_ACCESS_LOG=false
       - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
+      - ./logs:/var/log/app
     ports:
       - "8080:8080"
     depends_on:
@@ -33,6 +35,7 @@ services:
       - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
+      - ./logs:/var/log/app
     ports:
       - "9000:9000"
     networks:
@@ -50,6 +53,7 @@ services:
       - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
+      - ./logs:/var/log/app
     ports:
       - "9100:9100"
     networks:
@@ -68,6 +72,7 @@ services:
       - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
+      - ./logs:/var/log/app
     ports:
       - "9200:9200"
     networks:

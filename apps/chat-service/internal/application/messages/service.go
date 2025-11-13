@@ -9,6 +9,7 @@ import (
 	"golang-social-media/pkg/logger"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 type EventPublisher interface {
@@ -22,12 +23,14 @@ type Service interface {
 type service struct {
 	repository     Repository
 	eventPublisher EventPublisher
+	log            *zerolog.Logger
 }
 
 func NewService(repository Repository, eventPublisher EventPublisher) Service {
 	return &service{
 		repository:     repository,
 		eventPublisher: eventPublisher,
+		log:            logger.Component("chat.messages"),
 	}
 }
 
@@ -42,7 +45,9 @@ func (s *service) CreateMessage(ctx context.Context, senderID, receiverID, conte
 	}
 
 	if err := s.repository.Create(ctx, &msg); err != nil {
-		logger.Error().Err(err).Msg("failed to persist chat message")
+		s.log.Error().
+			Err(err).
+			Msg("failed to persist chat message")
 		return msg, err
 	}
 
@@ -57,11 +62,13 @@ func (s *service) CreateMessage(ctx context.Context, senderID, receiverID, conte
 		CreatedAt: createdAt,
 	}
 	if err := s.eventPublisher.PublishChatCreated(ctx, event); err != nil {
-		logger.Error().Err(err).Msg("failed to publish ChatCreated event")
+		s.log.Error().
+			Err(err).
+			Msg("failed to publish ChatCreated event")
 		return msg, err
 	}
 
-	logger.Info().
+	s.log.Info().
 		Str("message_id", msg.ID).
 		Str("sender_id", msg.SenderID).
 		Str("receiver_id", msg.ReceiverID).

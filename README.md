@@ -142,5 +142,8 @@ Override any setting by exporting it before launch, for example `export KAFKA_BR
 - Kafka producers/consumers are implemented with [`segmentio/kafka-go`](https://github.com/segmentio/kafka-go). When running outside Docker, use the host listener `localhost:9094`; services inside Docker should continue to use `kafka:9092`.
 - Shared code is pulled from `pkg/` via local replace directives, so nothing needs to be published externally.
 - Logging uses Zerolog with JSON output. Set `LOG_OUTPUT_DIR` (default `./logs`) to control file location. Docker compose sets it to `/var/log/app`, which Promtail watches and ships to Loki/Grafana.
+- Gateway-specific environment flags:
+  - `GIN_MODE=release` (or `debug`/`test`) to control Gin’s mode.
+  - `GIN_DISABLE_ACCESS_LOG=true` hides Gin’s access log noise (e.g. per-request HTTP logs). Leave unset or `false` to keep the default output.
 
 Future work will flesh out persistence, authentication, and real-time delivery handlers while keeping the DDD boundaries intact.

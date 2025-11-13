@@ -19,6 +19,7 @@ import (
 )
 
 func main() {
+	logger.SetModule("chat-service")
 	config.LoadEnv()
 
 	brokers := config.GetEnvStringSlice("KAFKA_BROKERS", []string{"localhost:9092"})
@@ -29,14 +30,20 @@ func main() {
 	}
 	defer func() {
 		if err := publisher.Close(); err != nil {
-			logger.Error().Err(err).Msg("failed to close kafka publisher")
+			logger.Component("bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close kafka publisher")
 		}
 	}()
 
 	dsn := config.GetEnv("CHAT_DATABASE_DSN", "postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to connect database")
+		logger.Component("bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to connect database")
 		os.Exit(1)
 	}
 	messageRepository := persistence.NewMessageRepository(db)
@@ -49,7 +56,10 @@ func main() {
 		handler := chatgrpc.NewHandler(messageService)
 		chatv1.RegisterChatServiceServer(server, handler)
 	}); err != nil {
-		logger.Error().Err(err).Msg("failed to start gRPC server")
+		logger.Component("bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to start gRPC server")
 		os.Exit(1)
 	}
 }

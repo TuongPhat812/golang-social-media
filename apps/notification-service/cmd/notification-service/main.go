@@ -17,6 +17,7 @@ import (
 )
 
 func main() {
+	logger.SetModule("notification-service")
 	config.LoadEnv()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -26,12 +27,18 @@ func main() {
 
 	publisher, err := eventbus.NewKafkaPublisher(brokers)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to create notification kafka publisher")
+		logger.Component("notification.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to create notification kafka publisher")
 		os.Exit(1)
 	}
 	defer func() {
 		if err := publisher.Close(); err != nil {
-			logger.Error().Err(err).Msg("failed to close notification kafka publisher")
+			logger.Component("notification.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close notification kafka publisher")
 		}
 	}()
 
@@ -43,18 +50,26 @@ func main() {
 		notificationService,
 	)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to create notification kafka subscriber")
+		logger.Component("notification.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to create notification kafka subscriber")
 		os.Exit(1)
 	}
 	defer func() {
 		if err := subscriber.Close(); err != nil {
-			logger.Error().Err(err).Msg("failed to close notification kafka subscriber")
+			logger.Component("notification.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close notification kafka subscriber")
 		}
 	}()
 
 	subscriber.ConsumeChatCreated(ctx)
 
-	logger.Info().Msg("notification service ready")
+	logger.Component("notification.bootstrap").
+		Info().
+		Msg("notification service ready")
 
 	port := config.GetEnvInt("NOTIFICATION_SERVICE_PORT", 9100)
 	addr := fmt.Sprintf(":%d", port)
@@ -62,7 +77,10 @@ func main() {
 	if err := grpcserver.Start(addr, func(server *grpc.Server) {
 		interfaces.Register(server, notificationService)
 	}); err != nil {
-		logger.Error().Err(err).Msg("failed to serve notification gRPC")
+		logger.Component("notification.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to serve notification gRPC")
 		os.Exit(1)
 	}
 }

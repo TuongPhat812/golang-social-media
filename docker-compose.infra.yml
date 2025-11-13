@@ -82,8 +82,7 @@ services:
     command: ["-config.file=/etc/promtail/promtail.yaml"]
     volumes:
       - ./infra/promtail/promtail.yaml:/etc/promtail/promtail.yaml
-      - /var/log:/var/log:ro
-      - ./logs:/var/log/app:ro
+      - ./logs:/mnt/app-logs:ro
     depends_on:
       - loki
     networks:

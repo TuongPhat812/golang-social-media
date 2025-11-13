@@ -27,7 +27,11 @@ func LoadEnv(filenames ...string) {
 			}
 			if _, err := os.Stat(file); err == nil {
 				if err := godotenv.Load(file); err != nil {
-					logger.Error().Err(err).Str("file", file).Msg("config unable to load env file")
+					logger.Component("config").
+						Error().
+						Err(err).
+						Str("file", file).
+						Msg("config unable to load env file")
 				}
 				return
 			}
@@ -49,7 +53,8 @@ func GetEnvInt(key string, fallback int) int {
 		if parsed, err := strconv.Atoi(value); err == nil {
 			return parsed
 		}
-		logger.Error().
+		logger.Component("config").
+			Error().
 			Str("key", key).
 			Str("value", value).
 			Msg("config invalid integer env value")

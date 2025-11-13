@@ -32,7 +32,10 @@ func NewClient(ctx context.Context) (*Client, error) {
 		return nil, err
 	}
 
-	logger.Info().Str("addr", addr).Msg("gateway connected to chat service")
+	logger.Component("gateway.grpc").
+		Info().
+		Str("addr", addr).
+		Msg("gateway connected to chat service")
 	return &Client{conn: conn, client: chatv1.NewChatServiceClient(conn)}, nil
 }
 
