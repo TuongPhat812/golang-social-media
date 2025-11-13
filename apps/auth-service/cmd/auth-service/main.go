@@ -6,6 +6,7 @@ import (
 
 	"golang-social-media/apps/auth-service/internal/application/command"
 	"golang-social-media/apps/auth-service/internal/application/query"
+	"golang-social-media/apps/auth-service/internal/infrastructure/eventbus"
 	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/memory"
 	"golang-social-media/apps/auth-service/internal/interfaces/rest"
 	"golang-social-media/pkg/config"
@@ -19,7 +20,18 @@ func main() {
 	repo := memory.NewUserRepository()
 	tokenStore := command.NewTokenStore()
 
-	registerHandler := command.NewRegisterUserHandler(repo, nil)
+	brokers := config.GetEnvStringSlice("KAFKA_BROKERS", []string{"localhost:9092"})
+	userPublisher, err := eventbus.NewKafkaPublisher(brokers)
+	if err != nil {
+		logger.Component("auth.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to create kafka publisher")
+		os.Exit(1)
+	}
+	defer userPublisher.Close()
+
+	registerHandler := command.NewRegisterUserHandler(repo, userPublisher, nil)
 	loginHandler := command.NewLoginUserHandler(repo, tokenStore)
 	getProfileHandler := query.NewGetUserProfileHandler(repo)
 

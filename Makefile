@@ -4,7 +4,7 @@ CHAT_MIGRATION_DIR=apps/chat-service/migrations
 CHAT_DB_DSN?=postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable
 MIGRATE_CLI=cd apps/chat-service && LOG_OUTPUT_DIR=$${LOG_OUTPUT_DIR:-logs} CHAT_DATABASE_DSN=$(CHAT_DB_DSN) go run ./cmd/migrate
 
-.PHONY: proto migration-create migration-up migration-down
+.PHONY: proto migration-create migration-up migration-down setup-ubuntu-deps
 
 proto:
 	@$(PROTOC) --version >/dev/null
@@ -21,3 +21,10 @@ migration-up:
 
 migration-down:
 	$(MIGRATE_CLI) down
+
+setup-ubuntu-deps:
+	sudo apt update
+	sudo apt install -y snapd protobuf-compiler
+	sudo snap install cqlsh
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest

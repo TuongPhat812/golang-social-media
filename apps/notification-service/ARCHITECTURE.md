@@ -1,50 +1,44 @@
-## Notification Service Architecture with Scylla Replication
+## Notification Service Architecture with Scylla
 
 ```
 apps/notification-service/
 ├── cmd/notification-service/
-│   └── main.go
+│   └── main.go                    # composition root
 ├── internal/
 │   ├── application/
 │   │   ├── command/
-│   │   │   ├── contracts/
-│   │   │   │   └── create_notification.command.contract.go
-│   │   │   ├── create_notification.command.go     # use cases (welcome, event-driven)
-│   │   │   └── dto/
-│   │   │       └── create_notification.command.dto.go
+│   │   │   ├── contracts/create_notification.command.contract.go
+│   │   │   ├── create_notification.command.go
+│   │   │   └── dto/create_notification.command.dto.go
 │   │   ├── query/
-│   │   │   ├── contracts/
-│   │   │   │   └── list_notifications.query.contract.go
+│   │   │   ├── contracts/list_notifications.query.contract.go
 │   │   │   └── list_notifications.query.go
 │   │   └── consumers/
-│   │       └── user_created.consumer.go          # handles Kafka user.created event
+│   │       └── user_created.consumer.go        # consumes user.created events
 │   ├── domain/
-│   │   ├── notification/
-│   │   │   └── entity.go                         # Notification entity + type enum
-│   │   └── user/
-│   │       └── entity.go                         # Replicated user profile (domain-level)
+│   │   ├── notification/entity.go
+│   │   └── user/entity.go
 │   ├── infrastructure/
 │   │   ├── eventbus/
-│   │   │   ├── kafka_publisher.go                # publishes NotificationCreated
-│   │   │   └── user_created_subscriber.go        # consumes user.created, triggers command
+│   │   │   ├── kafka_publisher.go             # emits NotificationCreated
+│   │   │   └── user_created_subscriber.go
 │   │   ├── persistence/
 │   │   │   └── scylla/
-│   │   │       ├── session.go                    # Scylla session bootstrap
-│   │   │       ├── notification_repository.db.go # DB representation, queries
-│   │   │       └── user_repository.db.go         # stores replicated users
-│   │   └── http/
-│   │       └── router.go                         # optional REST endpoints (list notifications)
+│   │   │       ├── session.go
+│   │   │       ├── notification_repository.db.go
+│   │   │       └── user_repository.db.go
+│   │   └── http/router.go (optional query API)
 │   └── interfaces/
-│       └── rest/
-│           ├── query/
-│           │   ├── contracts/list_notifications.http.contract.go
-│           │   └── list_notifications.http.handler.go
-│           └── dto/
-│               └── notification.http.response.go
+│       └── rest/query/
+│           ├── contracts/list_notifications.http.contract.go
+│           └── list_notifications.http.handler.go
 └── ...
 ```
 
-- Domain entity `notification.Notification` dùng chung cho mọi loại (field `Type`).
-- Persistence Scylla có bảng `notifications_by_user` và `notification_users`, nhưng domain code chỉ thao tác qua repository.
-- Kafka flow: `auth-service` → `UserCreated` → subscriber → `CreateNotificationCommand` (welcome) → insert Scylla → `NotificationCreated` (Kafka) → socket-service broadcast.
+### Flow
+1. Auth-service publishes `UserCreated` → consumer `user_created.consumer.go`.
+2. Consumer replicates user via `user_repository.db.go` and triggers `CreateNotificationCommand`.
+3. Command writes `Notification` domain object to Scylla (`notifications_by_user` table) using repository.
+4. Publisher emits `NotificationCreated` (Kafka) → socket-service broadcasts.
+5. Optional REST query returns notifications using unified domain entity; repository handles DB specifics.
 

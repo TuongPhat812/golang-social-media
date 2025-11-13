@@ -51,7 +51,8 @@ func (h *Hub) BroadcastChatCreated(event events.ChatCreated) {
 func (h *Hub) BroadcastNotificationCreated(event events.NotificationCreated) {
 	logger.Info().
 		Str("topic", events.TopicNotificationCreated).
-		Str("notification_id", event.NotificationID).
+		Str("notification_id", event.Notification.ID).
+		Str("user_id", event.Notification.UserID).
 		Msg("socket broadcast notification update")
 	// TODO: push to connected clients
 }

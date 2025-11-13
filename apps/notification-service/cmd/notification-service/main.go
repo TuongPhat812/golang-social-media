@@ -7,9 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	command "golang-social-media/apps/notification-service/internal/application/command"
+	"golang-social-media/apps/notification-service/internal/application/consumers"
 	"golang-social-media/apps/notification-service/internal/application/notifications"
 	"golang-social-media/apps/notification-service/internal/infrastructure/eventbus"
 	grpcserver "golang-social-media/apps/notification-service/internal/infrastructure/grpc"
+	scylladb "golang-social-media/apps/notification-service/internal/infrastructure/persistence/scylla"
 	interfaces "golang-social-media/apps/notification-service/internal/interfaces/grpc"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
@@ -30,7 +33,7 @@ func main() {
 		logger.Component("notification.bootstrap").
 			Error().
 			Err(err).
-			Msg("failed to create notification kafka publisher")
+			Msg("failed to create kafka publisher")
 		os.Exit(1)
 	}
 	defer func() {
@@ -38,13 +41,33 @@ func main() {
 			logger.Component("notification.bootstrap").
 				Error().
 				Err(err).
-				Msg("failed to close notification kafka publisher")
+				Msg("failed to close kafka publisher")
 		}
 	}()
 
-	notificationService := notifications.NewService(publisher)
+	scyllaHosts := config.GetEnvStringSlice("SCYLLA_HOSTS", []string{"localhost:9042"})
+	scyllaKeyspace := config.GetEnv("SCYLLA_KEYSPACE", "notification_service")
+	session, err := scylladb.NewSession(scyllaHosts, scyllaKeyspace)
+	if err != nil {
+		logger.Component("notification.bootstrap").
+			Error().
+			Err(err).
+			Strs("hosts", scyllaHosts).
+			Str("keyspace", scyllaKeyspace).
+			Msg("failed to connect scylla")
+		os.Exit(1)
+	}
+	defer session.Close()
 
-	subscriber, err := eventbus.NewSubscriber(
+	notificationRepo := scylladb.NewNotificationRepository(session)
+	userRepo := scylladb.NewUserRepository(session)
+
+	createNotificationCmd := command.NewCreateNotificationCommand(notificationRepo, publisher)
+	notificationService := notifications.NewService(createNotificationCmd)
+
+	userConsumer := consumers.NewUserCreatedConsumer(userRepo, createNotificationCmd)
+
+	chatSubscriber, err := eventbus.NewSubscriber(
 		brokers,
 		config.GetEnv("NOTIFICATION_CHAT_GROUP_ID", "notification-service-chat"),
 		notificationService,
@@ -53,19 +76,40 @@ func main() {
 		logger.Component("notification.bootstrap").
 			Error().
 			Err(err).
-			Msg("failed to create notification kafka subscriber")
+			Msg("failed to create chat subscriber")
 		os.Exit(1)
 	}
 	defer func() {
-		if err := subscriber.Close(); err != nil {
+		if err := chatSubscriber.Close(); err != nil {
 			logger.Component("notification.bootstrap").
 				Error().
 				Err(err).
-				Msg("failed to close notification kafka subscriber")
+				Msg("failed to close chat subscriber")
 		}
 	}()
+	chatSubscriber.ConsumeChatCreated(ctx)
 
-	subscriber.ConsumeChatCreated(ctx)
+	userSubscriber, err := eventbus.NewUserSubscriber(
+		brokers,
+		config.GetEnv("NOTIFICATION_USER_GROUP_ID", "notification-service-user"),
+		userConsumer,
+	)
+	if err != nil {
+		logger.Component("notification.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to create user subscriber")
+		os.Exit(1)
+	}
+	defer func() {
+		if err := userSubscriber.Close(); err != nil {
+			logger.Component("notification.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close user subscriber")
+		}
+	}()
+	userSubscriber.Consume(ctx)
 
 	logger.Component("notification.bootstrap").
 		Info().

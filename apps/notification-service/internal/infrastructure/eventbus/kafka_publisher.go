@@ -40,7 +40,7 @@ func (p *KafkaPublisher) PublishNotificationCreated(ctx context.Context, event e
 	}
 
 	if err := p.writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(event.NotificationID),
+		Key:   []byte(event.Notification.ID),
 		Value: payload,
 	}); err != nil {
 		logger.Error().Err(err).Msg("notification-service failed to publish NotificationCreated event")
@@ -49,7 +49,7 @@ func (p *KafkaPublisher) PublishNotificationCreated(ctx context.Context, event e
 
 	logger.Info().
 		Str("topic", events.TopicNotificationCreated).
-		Str("notification_id", event.NotificationID).
+		Str("notification_id", event.Notification.ID).
 		Msg("notification-service published NotificationCreated event")
 	return nil
 }

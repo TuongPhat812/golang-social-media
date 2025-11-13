@@ -7,6 +7,7 @@ This repository is organised as a mono-repo with four Go services under `apps/` 
 ```
 .
 ├── apps/
+│   ├── auth-service/
 │   ├── gateway/
 │   ├── chat-service/
 │   ├── notification-service/
@@ -14,10 +15,10 @@ This repository is organised as a mono-repo with four Go services under `apps/` 
 └── pkg/               # shared config, events, generated protobuf code, etc.
 ```
 
+- `apps/auth-service`: HTTP service responsible for user registration/login/profile and publishing user events.
 - `apps/gateway`: Gin HTTP gateway orchestrating downstream calls.
-- `apps/auth-service`: HTTP service responsible for user registration/login/profile.
 - `apps/chat-service`: gRPC service creating chat messages, persisting them in Postgres, and emitting Kafka events.
-- `apps/notification-service`: gRPC service consuming chat events, creating notifications, and emitting follow-up events.
+- `apps/notification-service`: Worker/QS service consuming events, replicating users to Scylla, creating notifications, and emitting follow-up events.
 - `apps/socket-service`: WebSocket service broadcasting events to connected clients.
 - `pkg`: Reusable packages (`config`, `events`, protobuf stubs under `pkg/gen`, …).
 
@@ -52,7 +53,7 @@ Shared packages now live in `pkg/` so services can import `golang-social-media/p
 
 Two Compose files are provided:
 
-- `docker-compose.infra.yml` — brings up Kafka, Postgres, Loki, Promtail, Kafka UI, and Grafana (no Zookeeper required thanks to KRaft mode).
+- `docker-compose.infra.yml` — brings up Kafka, Postgres, Loki, Promtail, Kafka UI, Grafana, and Scylla (single-node).
 - `docker-compose.app.yml` — runs the Go services inside containers (expects the infra stack to be running).
 
 ### Start Infrastructure
@@ -139,6 +140,16 @@ Override any setting by exporting it before launch, for example `export KAFKA_BR
 
 ## Development Notes
 
+- **Bootstrap tooling (Ubuntu)**  
+  Run `make setup-ubuntu-deps` once on a fresh machine to install OS-level tools the project relies on (`snapd`, `protobuf-compiler`, `cqlsh`, and the Go protobuf/grpc plugins). The target executes the following:
+  ```bash
+  sudo apt update
+  sudo apt install -y snapd protobuf-compiler
+  sudo snap install cqlsh
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  ```
+  Make sure `$GOBIN` (or `$GOPATH/bin`) is on your `PATH` so the generators are discoverable.
 - The repository uses a Go workspace (`go.work`) that includes every service under `apps/` plus the shared `pkg/` module.
 - Kafka producers/consumers are implemented with [`segmentio/kafka-go`](https://github.com/segmentio/kafka-go). When running outside Docker, use the host listener `localhost:9094`; services inside Docker should continue to use `kafka:9092`.
 - Shared code is pulled from `pkg/` via local replace directives, so nothing needs to be published externally.
@@ -147,5 +158,21 @@ Override any setting by exporting it before launch, for example `export KAFKA_BR
   - `GIN_MODE=release` (or `debug`/`test`) to control Gin’s mode.
   - `GIN_DISABLE_ACCESS_LOG=true` hides Gin’s access log noise (e.g. per-request HTTP logs). Leave unset or `false` to keep the default output.
   - `AUTH_SERVICE_URL` sets the base URL for the auth service REST API (defaults to `http://localhost:9101`).
+- Notification service:
+  - `SCYLLA_HOSTS` (comma separated, default `localhost:9042`)
+  - `SCYLLA_KEYSPACE` (default `notification_service`)
+  - `NOTIFICATION_USER_GROUP_ID` controls the Kafka consumer group for `user.created`
+
+### Database migrations
+
+#### ScyllaDB (Notification Service)
+
+Schema changes live in `apps/notification-service/infra/scylla/notification_service.cql`. To apply them locally:
+
+```bash
+cqlsh -f apps/notification-service/infra/scylla/notification_service.cql localhost 9042
+```
+
+The command assumes a local Scylla node on port `9042` (matching `docker-compose.infra.yml`). For remote clusters, adjust the host/port and authentication flags as needed.
 
 Future work will flesh out persistence, authentication, and real-time delivery handlers while keeping the DDD boundaries intact.

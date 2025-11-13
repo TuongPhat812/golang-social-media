@@ -50,10 +50,14 @@ services:
       - GOTOOLCHAIN=auto
       - KAFKA_BROKERS=kafka:9092
       - NOTIFICATION_CHAT_GROUP_ID=notification-service-chat
+      - NOTIFICATION_USER_GROUP_ID=notification-service-user
+      - SCYLLA_HOSTS=scylla:9042
+      - SCYLLA_KEYSPACE=notification_service
       - LOG_OUTPUT_DIR=/var/log/app
     volumes:
       - ./:/app
       - ./logs:/var/log/app
+      - ./apps/notification-service/infra/scylla:/app/infra/scylla
     ports:
       - "9100:9100"
     networks:

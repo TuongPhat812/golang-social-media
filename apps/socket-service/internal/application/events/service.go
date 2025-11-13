@@ -37,7 +37,8 @@ func (s *service) HandleChatCreated(ctx context.Context, event events.ChatCreate
 func (s *service) HandleNotificationCreated(ctx context.Context, event events.NotificationCreated) error {
 	logger.Info().
 		Str("topic", events.TopicNotificationCreated).
-		Str("notification_id", event.NotificationID).
+		Str("notification_id", event.Notification.ID).
+		Str("user_id", event.Notification.UserID).
 		Msg("socket-service received NotificationCreated event")
 	s.broadcaster.BroadcastNotificationCreated(event)
 	return nil

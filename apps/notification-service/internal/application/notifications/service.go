@@ -4,38 +4,37 @@ import (
 	"context"
 	"time"
 
-	domainuser "golang-social-media/apps/notification-service/internal/domain/user"
+	"golang-social-media/apps/notification-service/internal/application/command/contracts"
+	"golang-social-media/apps/notification-service/internal/application/command/dto"
+	domainnotification "golang-social-media/apps/notification-service/internal/domain/notification"
 	"golang-social-media/pkg/events"
 )
 
-type EventPublisher interface {
-	PublishNotificationCreated(ctx context.Context, event events.NotificationCreated) error
-}
-
 type Service interface {
-	SampleUser() domainuser.User
 	HandleChatCreated(ctx context.Context, event events.ChatCreated) error
 }
 
 type service struct {
-	publisher EventPublisher
+	createNotification contracts.CreateNotificationCommand
 }
 
-func NewService(publisher EventPublisher) Service {
-	return &service{publisher: publisher}
-}
-
-func (s *service) SampleUser() domainuser.User {
-	return domainuser.User{ID: "2", Username: "notify", FullName: "Notification Service"}
+func NewService(createNotification contracts.CreateNotificationCommand) Service {
+	return &service{createNotification: createNotification}
 }
 
 func (s *service) HandleChatCreated(ctx context.Context, event events.ChatCreated) error {
-	notification := events.NotificationCreated{
-		NotificationID: "noti-" + time.Now().UTC().Format("20060102150405"),
-		Recipient: events.NotificationRecipient{ID: event.Message.ReceiverID},
-		Message:        "New chat message from " + event.Message.SenderID,
-		CreatedAt:      time.Now().UTC(),
-	}
-
-	return s.publisher.PublishNotificationCreated(ctx, notification)
+	_, err := s.createNotification.Handle(ctx, dto.CreateNotificationCommandRequest{
+		UserID: event.Message.ReceiverID,
+		Type:   domainnotification.TypeChatMessage,
+		Title:  "Tin nhắn mới",
+		Body:   "New chat message from " + event.Message.SenderID,
+		Time:   time.Now().UTC(),
+		Metadata: map[string]string{
+			"senderId":   event.Message.SenderID,
+			"messageId":  event.Message.ID,
+			"content":    event.Message.Content,
+			"receiverId": event.Message.ReceiverID,
+		},
+	})
+	return err
 }

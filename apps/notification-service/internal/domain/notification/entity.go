@@ -1,10 +1,24 @@
 package notification
 
-import "time"
+import (
+	"time"
+
+	"github.com/gocql/gocql"
+)
+
+type Type string
+
+const (
+	TypeWelcome     Type = "welcome"
+	TypeChatMessage Type = "chat_message"
+)
 
 type Notification struct {
-	ID          string
-	RecipientID string
-	Message     string
-	CreatedAt   time.Time
+	ID        gocql.UUID
+	UserID    string
+	Type      Type
+	Title     string
+	Body      string
+	Metadata  map[string]string
+	CreatedAt time.Time
 }

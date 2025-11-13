@@ -103,6 +103,32 @@ services:
     networks:
       - gsm-network
 
+  scylla:
+    image: scylladb/scylla:5.4
+    container_name: gsm-scylla
+    command: --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+    ports:
+      - "9042:9042"
+    volumes:
+      - scylla-data:/var/lib/scylla
+      - ./apps/notification-service/infra/scylla:/var/lib/scylla-init
+    entrypoint: |
+      /bin/sh -c "
+      /docker-entrypoint.py --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0 &
+      pid=$!
+      sleep 25
+      until cqlsh -e 'describe cluster' localhost 9042 >/dev/null 2>&1; do sleep 5; done
+      cqlsh -f /var/lib/scylla-init/notification_service.cql localhost 9042 || true
+      wait $pid
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster' localhost 9042"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    networks:
+      - gsm-network
+
 networks:
   gsm-network:
     name: gsm-network
@@ -110,3 +136,4 @@ networks:
 volumes:
   postgres-data:
   grafana-data:
+  scylla-data:
