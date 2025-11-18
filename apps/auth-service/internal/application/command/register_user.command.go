@@ -2,57 +2,97 @@ package command
 
 import (
 	"context"
-	"time"
 
+	"github.com/rs/zerolog"
+	"golang-social-media/apps/auth-service/internal/application/command/contracts"
+	event_dispatcher "golang-social-media/apps/auth-service/internal/application/event_dispatcher"
 	"golang-social-media/apps/auth-service/internal/domain/user"
-	"golang-social-media/apps/auth-service/internal/infrastructure/eventbus"
 	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/memory"
 	"golang-social-media/apps/auth-service/internal/pkg/random"
 	"golang-social-media/pkg/contracts/auth"
-	"golang-social-media/pkg/events"
+	"golang-social-media/pkg/logger"
 )
 
-type RegisterUserHandler struct {
-	repo      *memory.UserRepository
-	publisher *eventbus.KafkaPublisher
-	idFn      func() string
+var _ contracts.RegisterUserCommand = (*registerUserCommand)(nil)
+
+type registerUserCommand struct {
+	repo           *memory.UserRepository
+	eventDispatcher *event_dispatcher.Dispatcher
+	idFn           func() string
+	log            *zerolog.Logger
 }
 
-func NewRegisterUserHandler(repo *memory.UserRepository, publisher *eventbus.KafkaPublisher, idFn func() string) *RegisterUserHandler {
+func NewRegisterUserCommand(
+	repo *memory.UserRepository,
+	eventDispatcher *event_dispatcher.Dispatcher,
+	idFn func() string,
+) contracts.RegisterUserCommand {
 	if idFn == nil {
 		idFn = func() string {
 			return "user-" + random.String(8)
 		}
 	}
-	return &RegisterUserHandler{repo: repo, publisher: publisher, idFn: idFn}
+	return &registerUserCommand{
+		repo:           repo,
+		eventDispatcher: eventDispatcher,
+		idFn:           idFn,
+		log:            logger.Component("auth.command.register_user"),
+	}
 }
 
-func (h *RegisterUserHandler) Handle(ctx context.Context, req auth.RegisterRequest) (auth.RegisterResponse, error) {
-	u := user.User{
-		ID:       h.idFn(),
+func (c *registerUserCommand) Execute(ctx context.Context, req auth.RegisterRequest) (auth.RegisterResponse, error) {
+	userModel := user.User{
+		ID:       c.idFn(),
 		Email:    req.Email,
 		Password: req.Password,
 		Name:     req.Name,
 	}
-	if err := h.repo.Create(u); err != nil {
+
+	// Validate business rules before persisting or publishing
+	if err := userModel.Validate(); err != nil {
+		c.log.Error().
+			Err(err).
+			Str("email", req.Email).
+			Msg("user validation failed")
 		return auth.RegisterResponse{}, err
 	}
 
-	if h.publisher != nil {
-		event := events.UserCreated{
-			ID:        u.ID,
-			Email:     u.Email,
-			Name:      u.Name,
-			CreatedAt: time.Now().UTC(),
-		}
-		if err := h.publisher.PublishUserCreated(ctx, event); err != nil {
-			return auth.RegisterResponse{}, err
+	// Domain logic: create user (this adds domain events internally)
+	userModel.Create()
+
+	// Persist to database
+	if err := c.repo.Create(userModel); err != nil {
+		c.log.Error().
+			Err(err).
+			Str("email", req.Email).
+			Msg("failed to persist user")
+		return auth.RegisterResponse{}, err
+	}
+
+	// Dispatch domain events AFTER successful persistence
+	domainEvents := userModel.Events()
+	userModel.ClearEvents() // Clear events after dispatch
+
+	for _, domainEvent := range domainEvents {
+		if err := c.eventDispatcher.Dispatch(ctx, domainEvent); err != nil {
+			// Log error but don't fail the command
+			// Events can be retried via outbox pattern in production
+			c.log.Error().
+				Err(err).
+				Str("event_type", domainEvent.Type()).
+				Str("user_id", userModel.ID).
+				Msg("failed to dispatch domain event")
 		}
 	}
 
+	c.log.Info().
+		Str("user_id", userModel.ID).
+		Str("email", userModel.Email).
+		Msg("user created")
+
 	return auth.RegisterResponse{
-		ID:    u.ID,
-		Email: u.Email,
-		Name:  u.Name,
+		ID:    userModel.ID,
+		Email: userModel.Email,
+		Name:  userModel.Name,
 	}, nil
 }

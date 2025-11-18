@@ -1,65 +1,69 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"golang-social-media/apps/chat-service/internal/application/messages"
-	"golang-social-media/apps/chat-service/internal/infrastructure/eventbus"
+	bootstrap "golang-social-media/apps/chat-service/internal/infrastructure/bootstrap"
 	grpcserver "golang-social-media/apps/chat-service/internal/infrastructure/grpc"
-	"golang-social-media/apps/chat-service/internal/infrastructure/persistence"
+	interfaces "golang-social-media/apps/chat-service/internal/interfaces/grpc"
 	chatgrpc "golang-social-media/apps/chat-service/internal/interfaces/grpc/chat"
 	"golang-social-media/pkg/config"
 	chatv1 "golang-social-media/pkg/gen/chat/v1"
 	"golang-social-media/pkg/logger"
-
 	"google.golang.org/grpc"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 func main() {
 	logger.SetModule("chat-service")
 	config.LoadEnv()
 
-	brokers := config.GetEnvStringSlice("KAFKA_BROKERS", []string{"localhost:9092"})
-	publisher, err := eventbus.NewKafkaPublisher(brokers)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to create kafka publisher")
-		os.Exit(1)
-	}
-	defer func() {
-		if err := publisher.Close(); err != nil {
-			logger.Component("bootstrap").
-				Error().
-				Err(err).
-				Msg("failed to close kafka publisher")
-		}
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	dsn := config.GetEnv("CHAT_DATABASE_DSN", "postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable")
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Setup all dependencies
+	deps, err := bootstrap.SetupDependencies(ctx)
 	if err != nil {
-		logger.Component("bootstrap").
+		logger.Component("chat.bootstrap").
 			Error().
 			Err(err).
-			Msg("failed to connect database")
+			Msg("failed to setup dependencies")
 		os.Exit(1)
 	}
-	messageRepository := persistence.NewMessageRepository(db)
-	messageService := messages.NewService(messageRepository, publisher)
+	defer cleanup(deps)
 
+	logger.Component("chat.bootstrap").
+		Info().
+		Msg("chat service ready")
+
+	// Start gRPC server
 	port := config.GetEnvInt("CHAT_SERVICE_PORT", 9000)
 	addr := fmt.Sprintf(":%d", port)
 
 	if err := grpcserver.Start(addr, func(server *grpc.Server) {
-		handler := chatgrpc.NewHandler(messageService)
+		handler := chatgrpc.NewHandler(deps)
 		chatv1.RegisterChatServiceServer(server, handler)
+		interfaces.RegisterServices(server, deps)
 	}); err != nil {
-		logger.Component("bootstrap").
+		logger.Component("chat.bootstrap").
 			Error().
 			Err(err).
-			Msg("failed to start gRPC server")
+			Msg("failed to serve chat gRPC")
 		os.Exit(1)
+	}
+}
+
+// cleanup closes all resources
+func cleanup(deps *bootstrap.Dependencies) {
+	if deps.Publisher != nil {
+		if err := deps.Publisher.Close(); err != nil {
+			logger.Component("chat.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close kafka publisher")
+		}
 	}
 }

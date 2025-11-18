@@ -3,8 +3,9 @@ package rest
 import (
 	"net/http"
 
-	command "golang-social-media/apps/auth-service/internal/application/command"
-	query "golang-social-media/apps/auth-service/internal/application/query"
+	commandcontracts "golang-social-media/apps/auth-service/internal/application/command/contracts"
+	appcommand "golang-social-media/apps/auth-service/internal/application/command"
+	querycontracts "golang-social-media/apps/auth-service/internal/application/query/contracts"
 	"golang-social-media/pkg/contracts/auth"
 	"golang-social-media/pkg/logger"
 
@@ -12,9 +13,9 @@ import (
 )
 
 type Handlers struct {
-	RegisterUser *command.RegisterUserHandler
-	LoginUser    *command.LoginUserHandler
-	GetProfile   *query.GetUserProfileHandler
+	RegisterUser commandcontracts.RegisterUserCommand
+	LoginUser    *appcommand.LoginUserHandler
+	GetProfile   querycontracts.GetUserProfileQuery
 }
 
 func NewRouter(h Handlers) *gin.Engine {
@@ -27,7 +28,7 @@ func NewRouter(h Handlers) *gin.Engine {
 			c.JSON(http.StatusBadRequest, auth.ErrorResponse{Error: err.Error()})
 			return
 		}
-		resp, err := h.RegisterUser.Handle(c.Request.Context(), req)
+		resp, err := h.RegisterUser.Execute(c.Request.Context(), req)
 		if err != nil {
 			logger.Component("auth.register").
 				Error().
@@ -61,7 +62,7 @@ func NewRouter(h Handlers) *gin.Engine {
 
 	router.GET("/auth/profile/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		resp, err := h.GetProfile.Handle(c.Request.Context(), id)
+		resp, err := h.GetProfile.Execute(c.Request.Context(), id)
 		if err != nil {
 			logger.Component("auth.profile").
 				Error().

@@ -1,13 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"golang-social-media/apps/auth-service/internal/application/command"
-	"golang-social-media/apps/auth-service/internal/application/query"
-	"golang-social-media/apps/auth-service/internal/infrastructure/eventbus"
-	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/memory"
+	bootstrap "golang-social-media/apps/auth-service/internal/infrastructure/bootstrap"
 	"golang-social-media/apps/auth-service/internal/interfaces/rest"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
@@ -17,28 +17,29 @@ func main() {
 	logger.SetModule("auth-service")
 	config.LoadEnv()
 
-	repo := memory.NewUserRepository()
-	tokenStore := command.NewTokenStore()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	brokers := config.GetEnvStringSlice("KAFKA_BROKERS", []string{"localhost:9092"})
-	userPublisher, err := eventbus.NewKafkaPublisher(brokers)
+	// Setup all dependencies
+	deps, err := bootstrap.SetupDependencies(ctx)
 	if err != nil {
 		logger.Component("auth.bootstrap").
 			Error().
 			Err(err).
-			Msg("failed to create kafka publisher")
+			Msg("failed to setup dependencies")
 		os.Exit(1)
 	}
-	defer userPublisher.Close()
+	defer cleanup(deps)
 
-	registerHandler := command.NewRegisterUserHandler(repo, userPublisher, nil)
-	loginHandler := command.NewLoginUserHandler(repo, tokenStore)
-	getProfileHandler := query.NewGetUserProfileHandler(repo)
+	logger.Component("auth.bootstrap").
+		Info().
+		Msg("auth service ready")
 
+	// Setup router
 	router := rest.NewRouter(rest.Handlers{
-		RegisterUser: registerHandler,
-		LoginUser:    loginHandler,
-		GetProfile:   getProfileHandler,
+		RegisterUser: deps.RegisterUserCmd,
+		LoginUser:    deps.LoginUserCmd,
+		GetProfile:   deps.GetUserProfileQuery,
 	})
 
 	port := config.GetEnvInt("AUTH_SERVICE_PORT", 9101)
@@ -55,5 +56,17 @@ func main() {
 			Err(err).
 			Msg("auth service failed")
 		os.Exit(1)
+	}
+}
+
+// cleanup closes all resources
+func cleanup(deps *bootstrap.Dependencies) {
+	if deps.Publisher != nil {
+		if err := deps.Publisher.Close(); err != nil {
+			logger.Component("auth.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close kafka publisher")
+		}
 	}
 }
