@@ -4,35 +4,38 @@ import (
 	"context"
 	"time"
 
-	"github.com/gocql/gocql"
-	"github.com/rs/zerolog"
 	"golang-social-media/apps/notification-service/internal/application/command/contracts"
 	"golang-social-media/apps/notification-service/internal/application/command/dto"
+	event_dispatcher "golang-social-media/apps/notification-service/internal/application/event_dispatcher"
 	"golang-social-media/apps/notification-service/internal/domain/notification"
 	"golang-social-media/apps/notification-service/internal/infrastructure/persistence/scylla"
-	"golang-social-media/pkg/events"
 	"golang-social-media/pkg/logger"
+
+	"github.com/gocql/gocql"
+	"github.com/rs/zerolog"
 )
 
-type notificationPublisher interface {
-	PublishNotificationCreated(ctx context.Context, event events.NotificationCreated) error
-}
+var _ contracts.CreateNotificationCommand = (*createNotificationCommand)(nil)
 
 type createNotificationCommand struct {
-	repo      *scylla.NotificationRepository
-	publisher notificationPublisher
-	log       *zerolog.Logger
+	repo            *scylla.NotificationRepository
+	eventDispatcher *event_dispatcher.Dispatcher
+	log             *zerolog.Logger
 }
 
 func NewCreateNotificationCommand(
 	repo *scylla.NotificationRepository,
-	publisher notificationPublisher,
+	eventDispatcher *event_dispatcher.Dispatcher,
 ) contracts.CreateNotificationCommand {
 	return &createNotificationCommand{
-		repo:      repo,
-		publisher: publisher,
-		log:       logger.Component("notification.command.create_notification"),
+		repo:            repo,
+		eventDispatcher: eventDispatcher,
+		log:             logger.Component("notification.command.create_notification"),
 	}
+}
+
+func (c *createNotificationCommand) Execute(ctx context.Context, req dto.CreateNotificationCommandRequest) (notification.Notification, error) {
+	return c.Handle(ctx, req)
 }
 
 func (c *createNotificationCommand) Handle(ctx context.Context, req dto.CreateNotificationCommandRequest) (notification.Notification, error) {
@@ -41,7 +44,7 @@ func (c *createNotificationCommand) Handle(ctx context.Context, req dto.CreateNo
 		createdAt = time.Now().UTC()
 	}
 
-	noti := notification.Notification{
+	notificationModel := notification.Notification{
 		ID:        gocql.TimeUUID(),
 		UserID:    req.UserID,
 		Type:      req.Type,
@@ -51,7 +54,21 @@ func (c *createNotificationCommand) Handle(ctx context.Context, req dto.CreateNo
 		CreatedAt: createdAt,
 	}
 
-	if err := c.repo.Insert(ctx, noti); err != nil {
+	// Validate business rules before persisting or publishing
+	if err := notificationModel.Validate(); err != nil {
+		c.log.Error().
+			Err(err).
+			Str("user_id", req.UserID).
+			Str("type", string(req.Type)).
+			Msg("notification validation failed")
+		return notification.Notification{}, err
+	}
+
+	// Domain logic: create notification (this adds domain events internally)
+	notificationModel.Create()
+
+	// Persist to database
+	if err := c.repo.Insert(ctx, notificationModel); err != nil {
 		c.log.Error().
 			Err(err).
 			Str("user_id", req.UserID).
@@ -60,31 +77,26 @@ func (c *createNotificationCommand) Handle(ctx context.Context, req dto.CreateNo
 		return notification.Notification{}, err
 	}
 
-	if c.publisher != nil {
-		event := events.NotificationCreated{
-			Notification: events.Notification{
-				ID:        noti.ID.String(),
-				UserID:    noti.UserID,
-				Type:      string(noti.Type),
-				Title:     noti.Title,
-				Body:      noti.Body,
-				CreatedAt: noti.CreatedAt,
-				Metadata:  noti.Metadata,
-			},
-		}
-		if err := c.publisher.PublishNotificationCreated(ctx, event); err != nil {
+	// Dispatch domain events AFTER successful persistence
+	domainEvents := notificationModel.Events()
+	notificationModel.ClearEvents() // Clear events after dispatch
+
+	for _, domainEvent := range domainEvents {
+		if err := c.eventDispatcher.Dispatch(ctx, domainEvent); err != nil {
+			// Log error but don't fail the command
+			// Events can be retried via outbox pattern in production
 			c.log.Error().
 				Err(err).
-				Str("notification_id", noti.ID.String()).
-				Msg("failed to publish NotificationCreated")
-			return notification.Notification{}, err
+				Str("event_type", domainEvent.Type()).
+				Str("notification_id", notificationModel.ID.String()).
+				Msg("failed to dispatch domain event")
 		}
 	}
 
 	c.log.Info().
-		Str("notification_id", noti.ID.String()).
-		Str("user_id", noti.UserID).
+		Str("notification_id", notificationModel.ID.String()).
+		Str("user_id", notificationModel.UserID).
 		Msg("notification created")
 
-	return noti, nil
+	return notificationModel, nil
 }

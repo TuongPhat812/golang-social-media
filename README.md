@@ -1,178 +1,85 @@
 # Golang Social Media Prototype
 
-This repository is organised as a mono-repo with four Go services under `apps/` (gateway, chat, notification, socket) and shared packages in `pkg/`. Each service keeps a Domain-Driven Design (DDD) layout so the domain, application, infrastructure, and interface layers remain isolated.
+A microservices-based social media backend built with Go, demonstrating Domain-Driven Design (DDD), event-driven architecture, and modern observability practices.
 
-## Layout
+## Overview
+
+This repository is organised as a mono-repo with multiple Go services under `apps/` and shared packages in `pkg/`. Each service follows a DDD-inspired layout with clear separation between domain, application, infrastructure, and interface layers.
+
+## Services
+
+- **`apps/auth-service`**: HTTP service for user registration, login, profile management, and publishing user events
+- **`apps/gateway`**: Gin HTTP gateway orchestrating downstream service calls
+- **`apps/chat-service`**: gRPC service for creating chat messages, persisting to Postgres, and emitting Kafka events
+- **`apps/notification-service`**: Event consumer service that replicates users to ScyllaDB, creates notifications, and emits follow-up events
+- **`apps/socket-service`**: WebSocket service broadcasting events to connected clients
+
+## Project Structure
 
 ```
 .
-├── apps/
+├── apps/              # Service implementations
 │   ├── auth-service/
 │   ├── gateway/
 │   ├── chat-service/
 │   ├── notification-service/
 │   └── socket-service/
-└── pkg/               # shared config, events, generated protobuf code, etc.
+├── pkg/               # Shared packages (config, events, protobuf stubs)
+├── proto/             # Protobuf schemas
+└── .cursor/dev/       # Detailed documentation
 ```
 
-- `apps/auth-service`: HTTP service responsible for user registration/login/profile and publishing user events.
-- `apps/gateway`: Gin HTTP gateway orchestrating downstream calls.
-- `apps/chat-service`: gRPC service creating chat messages, persisting them in Postgres, and emitting Kafka events.
-- `apps/notification-service`: Worker/QS service consuming events, replicating users to Scylla, creating notifications, and emitting follow-up events.
-- `apps/socket-service`: WebSocket service broadcasting events to connected clients.
-- `pkg`: Reusable packages (`config`, `events`, protobuf stubs under `pkg/gen`, …).
-
-## Project Layout
-
-Every service exposes its entrypoint under `apps/<service>/cmd/<service>/main.go` and keeps implemention details under `apps/<service>/internal/`.
+Each service follows this structure:
 
 ```
-<service>
+<service>/
 ├── cmd/<service-name>/main.go     # Composition root / entrypoint
 └── internal/
     ├── application/               # Application services and use-cases
-    ├── domain/                    # (service-specific domain entities when added)
-    ├── infrastructure/            # Framework and adapter implementations (gRPC, Kafka, etc.)
-    └── interfaces/                # Transport layers (HTTP, gRPC, WebSocket, etc.)
+    ├── domain/                    # Domain entities and business logic
+    ├── infrastructure/            # Framework adapters (gRPC, Kafka, DB, etc.)
+    └── interfaces/                # Transport layers (HTTP, gRPC, WebSocket)
 ```
 
-Shared packages now live in `pkg/` so services can import `golang-social-media/pkg/<package>`.
+## Documentation
 
-### Protobuf Contracts
+Detailed guides are available in `.cursor/dev/`:
 
-- Schemas live under `proto/`. Currently only `proto/chat/v1/chat_service.proto`.
-- Generated Go code is committed under `pkg/gen/chat/v1`.
-- Ensure you have `protoc` plus the Go plugins (`protoc-gen-go`, `protoc-gen-go-grpc`) on your `PATH`.
-- Regenerate Go code with:
+- **[Setup Guide](.cursor/dev/setup.md)** - Development environment setup, protobuf generation, Go workspace
+- **[Docker Guide](.cursor/dev/docker.md)** - Docker Compose setup, infrastructure services, application containers
+- **[Migrations Guide](.cursor/dev/migrations.md)** - Database migrations for PostgreSQL and ScyllaDB
+- **[Environment Variables](.cursor/dev/environment.md)** - Configuration and environment variable reference
+- **[Running Services](.cursor/dev/running.md)** - Manual execution, testing, logging, and debugging
+- **[Event Flow](.cursor/dev/event-flow.md)** - Event-driven architecture, Kafka topics, consumer groups
+- **[Source Guide](.cursor/dev/source-guide.md)** - How to read and navigate the codebase
+- **[Overview](.cursor/dev/overview.md)** - Project at a glance and quick start
 
-  ```bash
-  make proto
-  ```
+## Quick Start
 
-## Docker Compose Setup
+1. **Setup development environment**: See [setup.md](.cursor/dev/setup.md)
+2. **Start infrastructure**: See [docker.md](.cursor/dev/docker.md)
+3. **Run services**: See [running.md](.cursor/dev/running.md)
 
-Two Compose files are provided:
+## Key Technologies
 
-- `docker-compose.infra.yml` — brings up Kafka, Postgres, Loki, Promtail, Kafka UI, Grafana, and Scylla (single-node).
-- `docker-compose.app.yml` — runs the Go services inside containers (expects the infra stack to be running).
+- **Go 1.22+** with Go workspace (`go.work`)
+- **gRPC** for inter-service communication
+- **Kafka** for event streaming
+- **PostgreSQL** for relational data (chat-service)
+- **ScyllaDB** for NoSQL data (notification-service)
+- **Docker Compose** for local development
+- **Grafana + Loki** for log aggregation
+- **Prometheus** for metrics
+- **Cassandra Web UI** for ScyllaDB management
 
-### Start Infrastructure
+## Makefile Commands
 
-```bash
-cd /home/ubuntu/Workspace/myself/golang-social-media
-docker compose -f docker-compose.infra.yml up -d
-```
+- `make proto` - Generate protobuf Go code
+- `make migration-create NAME=<name>` - Create a new database migration
+- `make migration-up` - Apply pending migrations
+- `make migration-down` - Rollback one migration
+- `make setup-ubuntu-deps` - Install Ubuntu dependencies (protoc, cqlsh, etc.)
 
-This brings up Postgres, Kafka, and the observability stack on the shared `gsm-network`:
+## License
 
-- Postgres: `localhost:5432` (host) / `gsm-postgres:5432` (containers)
-- Kafka: `localhost:9092` (host) / `kafka:9092` (containers)
-- Loki: `http://localhost:3100`
-- Promtail scrapes `/var/log/app/*.log` and forwards to Loki.
-- Grafana: `http://localhost:3000` (default `admin/admin`)
-- Kafka UI: `http://localhost:8088`
-
-### Start Application Services
-
-```bash
-cd /home/ubuntu/Workspace/myself/golang-social-media
-docker compose -f docker-compose.app.yml up --build
-```
-
-Each service runs with code mounted from the host, using Go's `GOTOOLCHAIN=auto` to pull the correct toolchain. The containers connect to Kafka/Postgres and write logs to `/var/log/app` (mounted from `./logs`) so Promtail/Loki can ingest them.
-
-Stop everything with:
-
-```bash
-docker compose -f docker-compose.app.yml down
-docker compose -f docker-compose.infra.yml down
-```
-
-## Event Flow (Use Case: Create Chat Message)
-
-1. Client calls `POST /chat/messages` on the `gateway`.
-2. Gateway invokes `chat-service` over gRPC (`CreateMessage`).
-3. `chat-service` creates a message aggregate and publishes a `ChatCreated` event to Kafka.
-4. `notification-service` consumes the `ChatCreated` event, generates a notification, and publishes a `NotificationCreated` event.
-5. `socket-service` listens for both `ChatCreated` and `NotificationCreated` events and pushes real-time updates to connected clients.
-
-## Manual Run (Without Docker)
-
-If you prefer running binaries directly on the host, the executables automatically load environment variables from the repository’s `.env` file. Simply start each service in separate terminals:
-
-```bash
-# In separate shells
-cd apps/notification-service && go run ./cmd/notification-service
-cd apps/chat-service && go run ./cmd/chat-service
-cd apps/socket-service && go run ./cmd/socket-service
-cd apps/gateway && go run ./cmd/gateway
-```
-
-Override any setting by exporting it before launch, for example `export KAFKA_BROKERS=localhost:9094`.
-
-## Database & Migrations
-
-- Chat-service connects to Postgres using the `CHAT_DATABASE_DSN` environment variable (defaults to `postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable`).
-- Schema changes rely on explicit SQL migrations (GORM auto-migrate is disabled).
-- Versioned SQL migrations live in `apps/chat-service/migrations`. You can either use the Makefile targets or run the built-in Go CLI. Examples (from the repo root):
-
-  ```bash
-  cd apps/chat-service
-  go run ./cmd/migrate create add_messages_index   # generates stub files
-  go run ./cmd/migrate up                          # applies pending migrations
-  go run ./cmd/migrate down                        # rolls back one step
-  ```
-
-  If you prefer Makefile aliases from the repo root you can still use:
-
-  ```bash
-  # create a new migration (NAME is required)
-  make migration-create NAME=add_new_table
-
-  # apply migrations (uses CHAT_DB_DSN or defaults to local postgres)
-  make migration-up
-
-  # rollback one step
-  make migration-down
-  ```
-
-  Then edit the generated `.up.sql` / `.down.sql` files.
-
-## Development Notes
-
-- **Bootstrap tooling (Ubuntu)**  
-  Run `make setup-ubuntu-deps` once on a fresh machine to install OS-level tools the project relies on (`snapd`, `protobuf-compiler`, `cqlsh`, and the Go protobuf/grpc plugins). The target executes the following:
-  ```bash
-  sudo apt update
-  sudo apt install -y snapd protobuf-compiler
-  sudo snap install cqlsh
-  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-  ```
-  Make sure `$GOBIN` (or `$GOPATH/bin`) is on your `PATH` so the generators are discoverable.
-- The repository uses a Go workspace (`go.work`) that includes every service under `apps/` plus the shared `pkg/` module.
-- Kafka producers/consumers are implemented with [`segmentio/kafka-go`](https://github.com/segmentio/kafka-go). When running outside Docker, use the host listener `localhost:9094`; services inside Docker should continue to use `kafka:9092`.
-- Shared code is pulled from `pkg/` via local replace directives, so nothing needs to be published externally.
-- Logging uses Zerolog with JSON output. Set `LOG_OUTPUT_DIR` (default `./logs`) to control file location. Docker compose sets it to `/var/log/app`, which Promtail watches and ships to Loki/Grafana.
-- Gateway-specific environment flags:
-  - `GIN_MODE=release` (or `debug`/`test`) to control Gin’s mode.
-  - `GIN_DISABLE_ACCESS_LOG=true` hides Gin’s access log noise (e.g. per-request HTTP logs). Leave unset or `false` to keep the default output.
-  - `AUTH_SERVICE_URL` sets the base URL for the auth service REST API (defaults to `http://localhost:9101`).
-- Notification service:
-  - `SCYLLA_HOSTS` (comma separated, default `localhost:9042`)
-  - `SCYLLA_KEYSPACE` (default `notification_service`)
-  - `NOTIFICATION_USER_GROUP_ID` controls the Kafka consumer group for `user.created`
-
-### Database migrations
-
-#### ScyllaDB (Notification Service)
-
-Schema changes live in `apps/notification-service/infra/scylla/notification_service.cql`. To apply them locally:
-
-```bash
-cqlsh -f apps/notification-service/infra/scylla/notification_service.cql localhost 9042
-```
-
-The command assumes a local Scylla node on port `9042` (matching `docker-compose.infra.yml`). For remote clusters, adjust the host/port and authentication flags as needed.
-
-Future work will flesh out persistence, authentication, and real-time delivery handlers while keeping the DDD boundaries intact.
+This is a learning project. Use it as a reference for building microservices with Go.

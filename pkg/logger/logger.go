@@ -161,6 +161,11 @@ func (cw *consoleWriter) Write(p []byte) (int, error) {
 		line.WriteByte(' ')
 	}
 
+	if level != "" {
+		line.WriteString(cw.style(fmt.Sprintf("[%s]", level), true, levelColor(level)))
+		line.WriteByte(' ')
+	}
+
 	if module != "" {
 		line.WriteString(cw.style(fmt.Sprintf("[%s]", module), true, colorCyan))
 		line.WriteByte(' ')
@@ -168,11 +173,6 @@ func (cw *consoleWriter) Write(p []byte) (int, error) {
 
 	if component != "" {
 		line.WriteString(cw.style(fmt.Sprintf("[%s]", component), true, colorMagenta))
-		line.WriteByte(' ')
-	}
-
-	if level != "" {
-		line.WriteString(cw.style(fmt.Sprintf("[%s]", level), true, levelColor(level)))
 		line.WriteByte(' ')
 	}
 

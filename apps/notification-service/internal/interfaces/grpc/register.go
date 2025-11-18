@@ -1,12 +1,18 @@
 package grpc
 
 import (
-	"golang-social-media/apps/notification-service/internal/application/notifications"
+	bootstrap "golang-social-media/apps/notification-service/internal/infrastructure/bootstrap"
 	"golang-social-media/pkg/logger"
 	"google.golang.org/grpc"
 )
 
-func Register(server *grpc.Server, notificationService notifications.Service) {
-	// TODO: register generated gRPC handlers when available.
-	logger.Info().Msg("notification-service gRPC register invoked")
+// RegisterServices registers all gRPC services with the server
+func RegisterServices(server *grpc.Server, deps *bootstrap.Dependencies) {
+	// TODO: Register gRPC handlers when available
+	// Example:
+	// notificationpb.RegisterNotificationServiceServer(server, NewNotificationServiceHandler(deps))
+	
+	logger.Component("notification.grpc").
+		Info().
+		Msg("gRPC services registered")
 }

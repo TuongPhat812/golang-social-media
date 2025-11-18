@@ -15,3 +15,9 @@ type Notification struct {
 type NotificationCreated struct {
 	Notification Notification `json:"notification"`
 }
+
+type NotificationRead struct {
+	NotificationID string    `json:"notificationId"`
+	UserID         string    `json:"userId"`
+	ReadAt         time.Time `json:"readAt"`
+}

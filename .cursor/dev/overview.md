@@ -15,26 +15,16 @@
 
 ## Quick Start
 
-1. `docker compose -f docker-compose.infra.yml up -d`
-2. In separate shells (or use `docker-compose.app.yml`):
-   - `cd apps/chat-service && go run ./cmd/chat-service`
-   - `cd apps/notification-service && go run ./cmd/notification-service`
-   - `cd apps/socket-service && go run ./cmd/socket-service`
-   - `cd apps/gateway && go run ./cmd/gateway`
-3. Test the flow:
-   ```bash
-   curl -X POST http://localhost:8080/chat/messages \
-     -H 'Content-Type: application/json' \
-     -d '{"senderId":"user-1","receiverId":"user-2","content":"hello"}'
-   ```
-4. WebSocket endpoint lives at `ws://localhost:9200/ws`.
-5. Chat-service relies on manual migrations (GORM auto-migrate was removed). SQL migrations sống ở `apps/chat-service/migrations`.
-6. Shortcut commands: root `Makefile` (`make proto`, `make migration-create NAME=...`, `make migration-up`, `make migration-down`) hoặc CLI: `cd apps/chat-service && go run ./cmd/migrate [create|up|down]`.
+1. **Setup**: See [setup.md](./setup.md) for development environment setup
+2. **Start infrastructure**: `docker compose -f docker-compose.infra.yml up -d` (see [docker.md](./docker.md) for details)
+3. **Run services**: See [running.md](./running.md) for manual execution or use `docker-compose.app.yml`
+4. **Test the flow**: See [running.md](./running.md) for testing examples
+5. **Migrations**: See [migrations.md](./migrations.md) for database migration commands
 
 ## Environment
 
-- `.env` at repo root feeds all services (loaded via `pkg/config`) including `CHAT_DATABASE_DSN`.
-- For host execution Kafka defaults to `localhost:9094` (mapped from the container) and Postgres to `localhost:5432`. In Docker, services use `kafka:9092` and `gsm-postgres:5432`.
+- `.env` at repo root feeds all services (loaded via `pkg/config`). See [environment.md](./environment.md) for all configuration options.
+- For host execution Kafka defaults to `localhost:9092` and Postgres to `localhost:5432`. In Docker, services use `kafka:9092` and `gsm-postgres:5432`.
 
 ## Directory Walkthrough
 

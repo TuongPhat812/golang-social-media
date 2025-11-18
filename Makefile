@@ -28,3 +28,8 @@ setup-ubuntu-deps:
 	sudo snap install cqlsh
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+scylla-migrate-add-read-at:
+	@echo "Applying ScyllaDB migration: add_read_at_column..."
+	@docker exec -i gsm-scylla-1 cqlsh -e "USE notification_service; ALTER TABLE notifications_by_user ADD read_at timestamp;" || echo "Note: If column already exists, this error is expected."
+	@echo "Migration completed!"

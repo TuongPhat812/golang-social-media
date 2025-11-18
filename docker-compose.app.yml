@@ -51,7 +51,7 @@ services:
       - KAFKA_BROKERS=kafka:9092
       - NOTIFICATION_CHAT_GROUP_ID=notification-service-chat
       - NOTIFICATION_USER_GROUP_ID=notification-service-user
-      - SCYLLA_HOSTS=scylla:9042
+      - SCYLLA_HOSTS=scylla-1:9042,scylla-2:9042,scylla-3:9042
       - SCYLLA_KEYSPACE=notification_service
       - LOG_OUTPUT_DIR=/var/log/app
     volumes:
