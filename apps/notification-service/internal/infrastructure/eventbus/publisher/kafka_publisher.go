@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
-	"github.com/segmentio/kafka-go"
 	"golang-social-media/apps/notification-service/internal/infrastructure/eventbus/publisher/contracts"
 	"golang-social-media/pkg/events"
 	"golang-social-media/pkg/logger"
+
+	"github.com/segmentio/kafka-go"
 )
 
 var _ contracts.NotificationPublisher = (*KafkaPublisher)(nil)
@@ -27,12 +29,58 @@ func NewKafkaPublisher(brokers []string) (*KafkaPublisher, error) {
 		Addr:     kafka.TCP(brokers...),
 		Topic:    events.TopicNotificationCreated,
 		Balancer: &kafka.LeastBytes{},
+
+		// Batching Configuration - optimized for throughput
+		BatchSize:    100,                   // Batch up to 100 messages
+		BatchBytes:   1048576,               // 1MB max batch size
+		BatchTimeout: 10 * time.Millisecond, // Flush every 10ms
+
+		// Reliability
+		RequiredAcks: kafka.RequireOne, // Wait for leader ack
+		MaxAttempts:  10,               // Retry up to 10 times
+
+		// Timeouts
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+
+		// Backoff for retries
+		WriteBackoffMin: 100 * time.Millisecond,
+		WriteBackoffMax: 1 * time.Second,
+
+		// Performance
+		Async: true, // Non-blocking writes
+
+		// Compression - Snappy provides best balance
+		Compression: kafka.Snappy,
 	}
 
 	readWriter := &kafka.Writer{
 		Addr:     kafka.TCP(brokers...),
 		Topic:    events.TopicNotificationRead,
 		Balancer: &kafka.LeastBytes{},
+
+		// Batching Configuration - optimized for throughput
+		BatchSize:    100,                   // Batch up to 100 messages
+		BatchBytes:   1048576,               // 1MB max batch size
+		BatchTimeout: 10 * time.Millisecond, // Flush every 10ms
+
+		// Reliability
+		RequiredAcks: kafka.RequireOne, // Wait for leader ack
+		MaxAttempts:  10,               // Retry up to 10 times
+
+		// Timeouts
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+
+		// Backoff for retries
+		WriteBackoffMin: 100 * time.Millisecond,
+		WriteBackoffMax: 1 * time.Second,
+
+		// Performance
+		Async: true, // Non-blocking writes
+
+		// Compression - Snappy for consistency
+		Compression: kafka.Snappy,
 	}
 
 	logger.Component("notification.publisher").
@@ -111,4 +159,3 @@ func (p *KafkaPublisher) Close() error {
 	}
 	return p.readWriter.Close()
 }
-

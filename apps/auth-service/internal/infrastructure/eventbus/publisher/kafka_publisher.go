@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
-	"github.com/segmentio/kafka-go"
 	"golang-social-media/apps/auth-service/internal/infrastructure/eventbus/publisher/contracts"
 	"golang-social-media/pkg/events"
 	"golang-social-media/pkg/logger"
+
+	"github.com/segmentio/kafka-go"
 )
 
 var _ contracts.UserPublisher = (*KafkaPublisher)(nil)
@@ -26,6 +28,29 @@ func NewKafkaPublisher(brokers []string) (*KafkaPublisher, error) {
 		Addr:     kafka.TCP(brokers...),
 		Topic:    events.TopicUserCreated,
 		Balancer: &kafka.LeastBytes{},
+
+		// Batching Configuration - optimized for low latency (user creation is critical)
+		BatchSize:    50,                    // Smaller batch for lower latency
+		BatchBytes:   1048576,               // 1MB max batch size
+		BatchTimeout: 10 * time.Millisecond, // Flush every 10ms
+
+		// Reliability
+		RequiredAcks: kafka.RequireOne, // Wait for leader ack
+		MaxAttempts:  10,               // Retry up to 10 times
+
+		// Timeouts
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+
+		// Backoff for retries
+		WriteBackoffMin: 100 * time.Millisecond,
+		WriteBackoffMax: 1 * time.Second,
+
+		// Performance
+		Async: true, // Non-blocking writes
+
+		// Compression - Snappy for JSON payloads (typically 200-500 bytes)
+		Compression: kafka.Snappy,
 	}
 
 	logger.Component("auth.publisher").
@@ -68,4 +93,3 @@ func (p *KafkaPublisher) PublishUserCreated(ctx context.Context, event events.Us
 func (p *KafkaPublisher) Close() error {
 	return p.writer.Close()
 }
-

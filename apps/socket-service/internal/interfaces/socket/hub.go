@@ -25,15 +25,23 @@ func (h *Hub) RegisterRoutes(router *gin.Engine) {
 	router.GET("/ws", func(c *gin.Context) {
 		conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			logger.Error().Err(err).Msg("socket-service failed to upgrade websocket")
+			logger.Component("socket.hub").
+				Error().
+				Err(err).
+				Msg("failed to upgrade websocket")
 			return
 		}
 		defer conn.Close()
 
-		logger.Info().Msg("socket connected")
+		logger.Component("socket.hub").
+			Info().
+			Msg("socket connected")
 		for {
 			if _, _, err := conn.NextReader(); err != nil {
-				logger.Info().Err(err).Msg("socket connection closed")
+				logger.Component("socket.hub").
+					Info().
+					Err(err).
+					Msg("socket connection closed")
 				break
 			}
 		}
@@ -41,18 +49,20 @@ func (h *Hub) RegisterRoutes(router *gin.Engine) {
 }
 
 func (h *Hub) BroadcastChatCreated(event events.ChatCreated) {
-	logger.Info().
+	logger.Component("socket.hub").
+		Info().
 		Str("topic", events.TopicChatCreated).
 		Str("message_id", event.Message.ID).
-		Msg("socket broadcast chat update")
+		Msg("broadcast chat update")
 	// TODO: push to connected clients
 }
 
 func (h *Hub) BroadcastNotificationCreated(event events.NotificationCreated) {
-	logger.Info().
+	logger.Component("socket.hub").
+		Info().
 		Str("topic", events.TopicNotificationCreated).
 		Str("notification_id", event.Notification.ID).
 		Str("user_id", event.Notification.UserID).
-		Msg("socket broadcast notification update")
+		Msg("broadcast notification update")
 	// TODO: push to connected clients
 }

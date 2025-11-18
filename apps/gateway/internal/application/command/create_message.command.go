@@ -30,20 +30,37 @@ func NewCreateMessageCommand(client chatCommandClient) contracts.CreateMessageCo
 }
 
 func (c *createMessageCommand) Handle(ctx context.Context, senderID, receiverID, content string) (domain.Message, error) {
-	resp, err := c.client.CreateMessage(ctx, &chatv1.CreateMessageRequest{
+	startTime := time.Now()
+
+	// Prepare request
+	requestStart := time.Now()
+	req := &chatv1.CreateMessageRequest{
 		SenderId:   senderID,
 		ReceiverId: receiverID,
 		Content:    content,
-	})
+	}
+	requestDuration := time.Since(requestStart)
+
+	// Call gRPC client
+	grpcStart := time.Now()
+	resp, err := c.client.CreateMessage(ctx, req)
+	grpcDuration := time.Since(grpcStart)
+	
 	if err != nil {
+		totalDuration := time.Since(startTime)
 		c.log.Error().
 			Err(err).
 			Str("sender_id", senderID).
 			Str("receiver_id", receiverID).
+			Dur("request_prep_ms", requestDuration).
+			Dur("grpc_call_ms", grpcDuration).
+			Dur("total_ms", totalDuration).
 			Msg("failed to call chat-service CreateMessage")
 		return domain.Message{}, err
 	}
 
+	// Parse response
+	parseStart := time.Now()
 	msg := resp.GetMessage()
 	var createdAt time.Time
 	if ts := msg.GetCreatedAt(); ts != nil {
@@ -57,11 +74,18 @@ func (c *createMessageCommand) Handle(ctx context.Context, senderID, receiverID,
 		Content:    msg.GetContent(),
 		CreatedAt:  createdAt,
 	}
+	parseDuration := time.Since(parseStart)
+
+	totalDuration := time.Since(startTime)
 
 	c.log.Info().
 		Str("message_id", result.ID).
 		Str("sender_id", result.SenderID).
 		Str("receiver_id", result.ReceiverID).
+		Dur("request_prep_ms", requestDuration).
+		Dur("grpc_call_ms", grpcDuration).
+		Dur("parse_response_ms", parseDuration).
+		Dur("total_ms", totalDuration).
 		Msg("message created")
 
 	return result, nil

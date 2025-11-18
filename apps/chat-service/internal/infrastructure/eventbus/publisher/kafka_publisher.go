@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
-	"github.com/segmentio/kafka-go"
 	"golang-social-media/apps/chat-service/internal/infrastructure/eventbus/publisher/contracts"
 	"golang-social-media/pkg/events"
 	"golang-social-media/pkg/logger"
+
+	"github.com/segmentio/kafka-go"
 )
 
 var _ contracts.ChatPublisher = (*KafkaPublisher)(nil)
@@ -26,6 +28,29 @@ func NewKafkaPublisher(brokers []string) (*KafkaPublisher, error) {
 		Addr:     kafka.TCP(brokers...),
 		Topic:    events.TopicChatCreated,
 		Balancer: &kafka.LeastBytes{},
+
+		// Batching Configuration - optimized for throughput with low latency
+		BatchSize:    100,                   // Batch up to 100 messages for better throughput
+		BatchBytes:   1048576,               // 1MB max batch size
+		BatchTimeout: 10 * time.Millisecond, // Flush every 10ms if batch incomplete
+
+		// Reliability
+		RequiredAcks: kafka.RequireOne, // Wait for leader ack (good balance)
+		MaxAttempts:  10,               // Retry up to 10 times
+
+		// Timeouts
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+
+		// Backoff for retries
+		WriteBackoffMin: 100 * time.Millisecond,
+		WriteBackoffMax: 1 * time.Second,
+
+		// Performance
+		Async: true, // Non-blocking writes
+
+		// Compression - Snappy provides best balance of speed/ratio for JSON events
+		Compression: kafka.Snappy,
 	}
 
 	logger.Component("chat.publisher").
@@ -68,4 +93,3 @@ func (p *KafkaPublisher) PublishChatCreated(ctx context.Context, event events.Ch
 func (p *KafkaPublisher) Close() error {
 	return p.writer.Close()
 }
-

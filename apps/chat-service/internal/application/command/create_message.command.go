@@ -33,6 +33,10 @@ func NewCreateMessageCommand(
 }
 
 func (c *createMessageCommand) Execute(ctx context.Context, req contracts.CreateMessageCommandRequest) (message.Message, error) {
+	startTime := time.Now()
+
+	// Create message model
+	modelStart := time.Now()
 	createdAt := time.Now().UTC()
 	messageModel := message.Message{
 		ID:         uuid.NewString(),
@@ -41,36 +45,56 @@ func (c *createMessageCommand) Execute(ctx context.Context, req contracts.Create
 		Content:    req.Content,
 		CreatedAt:  createdAt,
 	}
+	modelDuration := time.Since(modelStart)
 
 	// Validate business rules before persisting or publishing
+	validateStart := time.Now()
 	if err := messageModel.Validate(); err != nil {
+		validateDuration := time.Since(validateStart)
+		totalDuration := time.Since(startTime)
 		c.log.Error().
 			Err(err).
 			Str("sender_id", req.SenderID).
 			Str("receiver_id", req.ReceiverID).
+			Dur("model_create_ms", modelDuration).
+			Dur("validate_ms", validateDuration).
+			Dur("total_ms", totalDuration).
 			Msg("message validation failed")
 		return message.Message{}, err
 	}
+	validateDuration := time.Since(validateStart)
 
 	// Domain logic: create message (this adds domain events internally)
+	domainStart := time.Now()
 	messageModel.Create()
+	domainDuration := time.Since(domainStart)
 
 	// Save domain events BEFORE persisting (repository might overwrite the message)
 	domainEvents := messageModel.Events()
 
 	// Persist to database
+	dbStart := time.Now()
 	if err := c.repo.Create(ctx, &messageModel); err != nil {
+		dbDuration := time.Since(dbStart)
+		totalDuration := time.Since(startTime)
 		c.log.Error().
 			Err(err).
 			Str("sender_id", req.SenderID).
 			Str("receiver_id", req.ReceiverID).
+			Dur("model_create_ms", modelDuration).
+			Dur("validate_ms", validateDuration).
+			Dur("domain_logic_ms", domainDuration).
+			Dur("db_persist_ms", dbDuration).
+			Dur("total_ms", totalDuration).
 			Msg("failed to persist message")
 		return message.Message{}, err
 	}
+	dbDuration := time.Since(dbStart)
 
 	// Dispatch domain events AFTER successful persistence
 	messageModel.ClearEvents() // Clear events after dispatch
 
+	dispatchStart := time.Now()
 	c.log.Info().
 		Int("event_count", len(domainEvents)).
 		Str("message_id", messageModel.ID).
@@ -97,11 +121,20 @@ func (c *createMessageCommand) Execute(ctx context.Context, req contracts.Create
 				Msg("domain event dispatched successfully")
 		}
 	}
+	dispatchDuration := time.Since(dispatchStart)
+
+	totalDuration := time.Since(startTime)
 
 	c.log.Info().
 		Str("message_id", messageModel.ID).
 		Str("sender_id", messageModel.SenderID).
 		Str("receiver_id", messageModel.ReceiverID).
+		Dur("model_create_ms", modelDuration).
+		Dur("validate_ms", validateDuration).
+		Dur("domain_logic_ms", domainDuration).
+		Dur("db_persist_ms", dbDuration).
+		Dur("event_dispatch_ms", dispatchDuration).
+		Dur("total_ms", totalDuration).
 		Msg("message created")
 
 	return messageModel, nil
