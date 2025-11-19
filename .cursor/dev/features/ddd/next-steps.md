@@ -35,39 +35,15 @@
 
 ### 🔴 High Priority (Implement Soon)
 
-#### 1. Unit of Work Pattern
-**Mục đích:** Manage transactions và ensure consistency across multiple aggregates
-
-**Ví dụ:**
-```go
-// application/unit_of_work/unit_of_work.go
-type UnitOfWork interface {
-    Products() products.Repository
-    Orders() orders.Repository
-    Commit() error
-    Rollback() error
-}
-
-// Usage
-func (c *CreateOrderCommand) Execute(ctx context.Context, req CreateOrderRequest) error {
-    uow := c.uowFactory.New(ctx)
-    defer uow.Rollback()
-    
-    product := uow.Products().FindByID(req.ProductID)
-    order := uow.Orders().Create(...)
-    
-    return uow.Commit()
-}
-```
-
-**Benefits:**
-- Transaction management
-- Consistency across multiple aggregates
-- Easier to test (mock UoW)
+#### 1. ✅ Unit of Work Pattern - COMPLETED
+**Status:** ✅ Implemented
+**Location:** `apps/ecommerce-service/internal/application/unit_of_work/`
 
 ---
 
 #### 2. Testing Infrastructure
+**Status:** ❌ Not implemented
+**Priority:** 🔴 High
 **Cần bổ sung:**
 - Unit tests cho domain entities và value objects
 - Integration tests cho repositories
@@ -104,11 +80,14 @@ func (b *UserBuilder) Build() User {
 ---
 
 #### 3. Domain Services (Complete)
-**Hiện có:** ecommerce-service có StockReservationService, OrderCalculationService
+**Status:** ⚠️ Partially implemented
+**Priority:** 🟡 Medium
+**Hiện có:** 
+- ✅ ecommerce-service: StockReservationService, OrderCalculationService, ProductAvailabilityService
 
 **Cần thêm:**
-- Auth service: Password hashing service, Token generation service
-- Chat service: Message validation service, Conversation management service
+- ❌ Auth service: Password hashing service, Token generation service
+- ❌ Chat service: Message validation service, Conversation management service
 
 **Ví dụ:**
 ```go
@@ -156,53 +135,26 @@ type AndSpec struct {
 
 ---
 
-#### 5. Factory Pattern
-**Mục đích:** Encapsulate complex object creation logic
-
-**Ví dụ:**
-```go
-// domain/factories/order.factory.go
-type OrderFactory struct {
-    pricingService *PricingService
-    inventoryService *InventoryService
-}
-
-func (f *OrderFactory) CreateOrder(
-    userID string,
-    items []OrderItemRequest,
-) (*Order, error) {
-    // Validate items
-    // Check stock availability
-    // Calculate totals
-    // Create order with domain events
-    return order, nil
-}
-```
+#### 5. ✅ Factory Pattern - COMPLETED
+**Status:** ✅ Implemented
+**Location:** 
+- `apps/ecommerce-service/internal/domain/factories/order.factory.go`
+- `apps/chat-service/internal/domain/factories/message.factory.go`
+- `apps/auth-service/internal/domain/factories/user.factory.go`
 
 ---
 
-#### 6. Enhanced Domain Events
-**Hiện tại:** Domain events được dispatch sau khi persist
+#### 6. ✅ Enhanced Domain Events - COMPLETED
+**Status:** ✅ Implemented
+**Location:**
+- `apps/ecommerce-service/internal/infrastructure/outbox/` - Outbox Pattern
+- `apps/ecommerce-service/internal/infrastructure/eventstore/` - Event Store
+- Domain events với versioning support
 
-**Cần bổ sung:**
-- **Outbox Pattern** - Đảm bảo events được publish sau khi transaction commit
-- **Event Store** - Lưu domain events để replay (optional)
-- **Event Versioning** - Handle schema changes
-
-**Ví dụ Outbox Pattern:**
-```go
-// infrastructure/persistence/outbox/outbox.go
-type Outbox struct {
-    ID        string
-    EventType string
-    Payload   []byte
-    Status    string
-    CreatedAt time.Time
-}
-
-// After domain event is created, save to outbox
-// Background job publishes from outbox to Kafka
-```
+**Đã implement:**
+- ✅ **Outbox Pattern** - Events được save vào outbox trong transaction, background processor publish
+- ✅ **Event Store** - Lưu tất cả domain events với query capabilities
+- ✅ **Event Versioning** - Version support và migration strategy
 
 ---
 
@@ -295,12 +247,20 @@ type Validator interface {
 
 ---
 
-#### 11. Performance Optimizations
-**Cần bổ sung:**
-- **Caching layer** - Redis cho frequently accessed data
-- **Query optimization** - Database indexes, query analysis
-- **Batch operations** - Bulk inserts/updates
-- **Connection pooling** - Database và external service connections
+#### 11. ✅ Performance Optimizations - COMPLETED
+**Status:** ✅ Implemented
+**Location:**
+- `apps/ecommerce-service/internal/infrastructure/cache/` - Redis caching
+- `apps/ecommerce-service/migrations/000005_add_database_indexes.up.sql` - Database indexes
+- `apps/ecommerce-service/internal/infrastructure/persistence/postgres/batch.repository.go` - Batch operations
+- `apps/ecommerce-service/internal/infrastructure/persistence/postgres/query.optimizer.go` - Query optimization
+- Connection pooling configured trong bootstrap
+
+**Đã implement:**
+- ✅ **Caching layer** - Redis với ProductCache và OrderCache
+- ✅ **Query optimization** - Database indexes cho frequently queried columns
+- ✅ **Batch operations** - BatchCreateProducts, BatchUpdateProducts, BatchCreateOrders
+- ✅ **Connection pooling** - Database (25 max, 10 idle) và Redis (10 pool, 5 min idle)
 
 ---
 
@@ -315,27 +275,32 @@ type Validator interface {
 
 ## 📊 Implementation Roadmap
 
-### Phase 1: Foundation (Weeks 1-2)
+### Phase 1: Foundation (Weeks 1-2) ✅ COMPLETED
 1. ✅ Unit of Work Pattern
-2. ✅ Testing Infrastructure (unit tests, builders, mocks)
-3. ✅ Domain Services completion
+2. ✅ Factory Pattern
+3. ✅ Performance Optimizations (caching, indexes, batch ops, connection pooling)
 
-### Phase 2: Business Logic (Weeks 3-4)
-4. ✅ Specifications Pattern
-5. ✅ Factory Pattern
+### Phase 2: Reliability (Weeks 3-4) ✅ COMPLETED
+4. ✅ Enhanced Domain Events (Outbox pattern)
+5. ✅ Event Store
+6. ✅ Event Versioning
 
-### Phase 3: Reliability (Weeks 5-6)
-6. ✅ Enhanced Domain Events (Outbox pattern)
-7. ✅ Event Store (optional)
+### Phase 3: Business Logic (Weeks 5-6) ⏳ IN PROGRESS
+7. ⏳ Specifications Pattern
+8. ⏳ Testing Infrastructure (unit tests, builders, mocks)
+9. ⏳ Domain Services completion (auth, chat services)
 
-### Phase 4: Distributed Systems (Weeks 7-8)
-8. ✅ Saga Pattern
-9. ✅ Read Models / Projections
+### Phase 4: Distributed Systems (Weeks 7-8) ❌ NOT STARTED
+10. ❌ Saga Pattern
+11. ❌ Read Models / Projections
+12. ❌ Application Services (orchestration)
 
-### Phase 5: Polish (Ongoing)
-10. ⏳ Anti-Corruption Layer (when needed)
-11. ⏳ Performance Optimizations
-12. ⏳ Documentation
+### Phase 5: Advanced & Polish (Ongoing) ❌ NOT STARTED
+13. ❌ Anti-Corruption Layer (when needed)
+14. ❌ Event Sourcing Replay mechanism
+15. ❌ Value Objects cho tất cả services (Email, MessageContent)
+16. ❌ Additional Aggregates (ChatAggregate, UserAggregate)
+17. ⏳ Documentation improvements
 
 ---
 
@@ -398,48 +363,60 @@ Những thứ có thể implement nhanh và có impact lớn:
 
 ## 🎯 Current Status Summary
 
-### ✅ Well Implemented (80-90%)
-- Domain Entities
-- Domain Events
-- CQRS (Commands & Queries)
-- Repository Pattern
-- Mappers
-- Error Handling
-- Layered Architecture
+### ✅ Well Implemented (80-100%)
+- Domain Entities ✅
+- Domain Events ✅
+- CQRS (Commands & Queries) ✅
+- Repository Pattern ✅
+- Mappers ✅
+- Error Handling ✅
+- Layered Architecture ✅
+- Unit of Work Pattern ✅ (vừa implement)
+- Factory Pattern ✅ (vừa implement)
+- Outbox Pattern ✅ (vừa implement)
+- Event Store ✅ (vừa implement)
+- Event Versioning ✅ (vừa implement)
+- Performance Optimizations ✅ (vừa implement: caching, indexes, batch ops, connection pooling)
 
 ### ⚠️ Partially Implemented (50-70%)
-- Value Objects (có trong ecommerce, cần thêm ở services khác)
-- Domain Services (có một số, cần complete)
-- Aggregates (có Order aggregate, cần thêm)
+- Value Objects (có trong ecommerce: Money, Quantity - cần thêm ở services khác: Email, MessageContent)
+- Domain Services (có một số trong ecommerce, cần complete cho auth/chat)
+- Aggregates (có Order aggregate, cần thêm ChatAggregate, UserAggregate)
 
 ### ❌ Not Yet Implemented (0-30%)
-- Unit of Work Pattern
 - Specifications Pattern
-- Factory Pattern
-- Outbox Pattern
 - Saga Pattern
-- Read Models
-- Testing Infrastructure
+- Read Models / Projections
+- Testing Infrastructure (unit tests, test builders, mocks)
 - Anti-Corruption Layer
+- Application Services (orchestration services)
+- Event Sourcing Replay (có Event Store nhưng chưa có replay mechanism)
 
 ---
 
 ## 🚀 Next Immediate Actions
 
 1. **This Week:**
-   - Implement Unit of Work pattern
-   - Add unit tests cho domain entities
-   - Create test builders
+   - ✅ Implement Unit of Work pattern
+   - ✅ Implement Factory Pattern
+   - ✅ Implement Outbox Pattern
+   - ✅ Implement Event Store
+   - ✅ Implement Performance Optimizations
+   - ⏳ Add unit tests cho domain entities
+   - ⏳ Create test builders
 
 2. **Next Week:**
-   - Implement Outbox pattern
-   - Complete Domain Services
-   - Add Specifications pattern
+   - ⏳ Implement Specifications Pattern
+   - ⏳ Complete Domain Services (auth, chat)
+   - ⏳ Add Value Objects (Email, MessageContent)
+   - ⏳ Add more Aggregates (ChatAggregate, UserAggregate)
 
 3. **Following Weeks:**
-   - Factory Pattern
-   - Saga Pattern
-   - Read Models
+   - ❌ Saga Pattern
+   - ❌ Read Models / Projections
+   - ❌ Application Services
+   - ❌ Anti-Corruption Layer
+   - ❌ Event Sourcing Replay
 
 ---
 
