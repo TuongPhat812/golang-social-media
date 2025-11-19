@@ -2,12 +2,13 @@ package rest
 
 import (
 	"net/http"
+	"os"
 
 	commandcontracts "golang-social-media/apps/auth-service/internal/application/command/contracts"
 	appcommand "golang-social-media/apps/auth-service/internal/application/command"
 	querycontracts "golang-social-media/apps/auth-service/internal/application/query/contracts"
 	"golang-social-media/pkg/contracts/auth"
-	"golang-social-media/pkg/logger"
+	"golang-social-media/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,22 +21,23 @@ type Handlers struct {
 
 func NewRouter(h Handlers) *gin.Engine {
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	
+	// Initialize error transformer
+	devMode := os.Getenv("ENV") == "development"
+	transformer := errors.NewTransformer(devMode)
+	
+	// Add error middleware
+	router.Use(gin.Logger(), gin.Recovery(), errors.ErrorMiddleware(transformer))
 
 	router.POST("/auth/register", func(c *gin.Context) {
 		var req auth.RegisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, auth.ErrorResponse{Error: err.Error()})
+			c.Error(errors.NewInvalidRequestError("Invalid request body"))
 			return
 		}
 		resp, err := h.RegisterUser.Execute(c.Request.Context(), req)
 		if err != nil {
-			logger.Component("auth.register").
-				Error().
-				Err(err).
-				Str("email", req.Email).
-				Msg("register failed")
-			c.JSON(http.StatusBadRequest, auth.ErrorResponse{Error: err.Error()})
+			c.Error(err)
 			return
 		}
 		c.JSON(http.StatusCreated, resp)
@@ -44,17 +46,12 @@ func NewRouter(h Handlers) *gin.Engine {
 	router.POST("/auth/login", func(c *gin.Context) {
 		var req auth.LoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, auth.ErrorResponse{Error: err.Error()})
+			c.Error(errors.NewInvalidRequestError("Invalid request body"))
 			return
 		}
 		resp, err := h.LoginUser.Handle(c.Request.Context(), req)
 		if err != nil {
-			logger.Component("auth.login").
-				Error().
-				Err(err).
-				Str("email", req.Email).
-				Msg("login failed")
-			c.JSON(http.StatusUnauthorized, auth.ErrorResponse{Error: err.Error()})
+			c.Error(err)
 			return
 		}
 		c.JSON(http.StatusOK, resp)
@@ -64,12 +61,7 @@ func NewRouter(h Handlers) *gin.Engine {
 		id := c.Param("id")
 		resp, err := h.GetProfile.Execute(c.Request.Context(), id)
 		if err != nil {
-			logger.Component("auth.profile").
-				Error().
-				Err(err).
-				Str("user_id", id).
-				Msg("profile lookup failed")
-			c.JSON(http.StatusNotFound, auth.ErrorResponse{Error: err.Error()})
+			c.Error(err)
 			return
 		}
 		c.JSON(http.StatusOK, resp)

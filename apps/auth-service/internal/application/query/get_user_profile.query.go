@@ -31,6 +31,7 @@ func (q *getUserProfileQuery) Execute(ctx context.Context, userID string) (auth.
 			Err(err).
 			Str("user_id", userID).
 			Msg("failed to get user profile")
+		// Transform error - transformer will handle not found cases
 		return auth.ProfileResponse{}, err
 	}
 

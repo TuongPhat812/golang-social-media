@@ -2,7 +2,9 @@ package grpc
 
 import (
 	"net"
+	"os"
 
+	"golang-social-media/pkg/errors"
 	"golang-social-media/pkg/logger"
 	"google.golang.org/grpc"
 )
@@ -13,7 +15,14 @@ func Start(addr string, register func(*grpc.Server)) error {
 		return err
 	}
 
-	server := grpc.NewServer()
+	// Initialize error transformer
+	devMode := os.Getenv("ENV") == "development"
+	transformer := errors.NewTransformer(devMode)
+
+	// Create server with error interceptor
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(errors.GRPCErrorInterceptor(transformer)),
+	)
 	if register != nil {
 		register(server)
 	}

@@ -5,25 +5,30 @@ import (
 
 	"golang-social-media/apps/ecommerce-service/internal/application/products"
 	"golang-social-media/apps/ecommerce-service/internal/domain/product"
+	"golang-social-media/apps/ecommerce-service/internal/infrastructure/persistence/postgres/mappers"
 	"gorm.io/gorm"
 )
 
 var _ products.Repository = (*ProductRepository)(nil)
 
 type ProductRepository struct {
-	db *gorm.DB
+	db     *gorm.DB
+	mapper *mappers.ProductMapper
 }
 
 func NewProductRepository(db *gorm.DB) *ProductRepository {
-	return &ProductRepository{db: db}
+	return &ProductRepository{
+		db:     db,
+		mapper: mappers.NewProductMapper(),
+	}
 }
 
 func (r *ProductRepository) Create(ctx context.Context, p *product.Product) error {
-	model := ProductModelFromDomain(*p)
+	model := r.mapper.ToModel(*p)
 	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
 		return err
 	}
-	*p = model.ToDomain()
+	*p = r.mapper.ToDomain(model)
 	return nil
 }
 
@@ -32,15 +37,15 @@ func (r *ProductRepository) FindByID(ctx context.Context, id string) (product.Pr
 	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&model).Error; err != nil {
 		return product.Product{}, err
 	}
-	return model.ToDomain(), nil
+	return r.mapper.ToDomain(model), nil
 }
 
 func (r *ProductRepository) Update(ctx context.Context, p *product.Product) error {
-	model := ProductModelFromDomain(*p)
+	model := r.mapper.ToModel(*p)
 	if err := r.db.WithContext(ctx).Save(&model).Error; err != nil {
 		return err
 	}
-	*p = model.ToDomain()
+	*p = r.mapper.ToDomain(model)
 	return nil
 }
 
@@ -56,11 +61,6 @@ func (r *ProductRepository) List(ctx context.Context, status *product.Status, li
 		return nil, err
 	}
 
-	products := make([]product.Product, len(models))
-	for i, model := range models {
-		products[i] = model.ToDomain()
-	}
-
-	return products, nil
+	return r.mapper.ToDomainList(models), nil
 }
 

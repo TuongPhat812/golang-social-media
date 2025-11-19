@@ -2,8 +2,6 @@ package persistence
 
 import (
 	"time"
-
-	domain "golang-social-media/apps/chat-service/internal/domain/message"
 )
 
 type MessageModel struct {
@@ -18,22 +16,3 @@ func (MessageModel) TableName() string {
 	return "messages"
 }
 
-func MessageModelFromDomain(msg domain.Message) MessageModel {
-	return MessageModel{
-		ID:         msg.ID,
-		SenderID:   msg.SenderID,
-		ReceiverID: msg.ReceiverID,
-		Content:    msg.Content,
-		CreatedAt:  msg.CreatedAt,
-	}
-}
-
-func (m MessageModel) ToDomain() domain.Message {
-	return domain.Message{
-		ID:         m.ID,
-		SenderID:   m.SenderID,
-		ReceiverID: m.ReceiverID,
-		Content:    m.Content,
-		CreatedAt:  m.CreatedAt,
-	}
-}

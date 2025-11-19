@@ -6,21 +6,26 @@ import (
 	"github.com/google/uuid"
 	"golang-social-media/apps/ecommerce-service/internal/application/orders"
 	"golang-social-media/apps/ecommerce-service/internal/domain/order"
+	"golang-social-media/apps/ecommerce-service/internal/infrastructure/persistence/postgres/mappers"
 	"gorm.io/gorm"
 )
 
 var _ orders.Repository = (*OrderRepository)(nil)
 
 type OrderRepository struct {
-	db *gorm.DB
+	db     *gorm.DB
+	mapper *mappers.OrderMapper
 }
 
 func NewOrderRepository(db *gorm.DB) *OrderRepository {
-	return &OrderRepository{db: db}
+	return &OrderRepository{
+		db:     db,
+		mapper: mappers.NewOrderMapper(),
+	}
 }
 
 func (r *OrderRepository) Create(ctx context.Context, o *order.Order) error {
-	orderModel, itemModels := OrderModelFromDomain(*o)
+	orderModel, itemModels := r.mapper.ToModel(*o)
 
 	// Generate IDs for order items
 	for i := range itemModels {
@@ -42,7 +47,7 @@ func (r *OrderRepository) Create(ctx context.Context, o *order.Order) error {
 		}
 
 		// Update domain entity
-		*o = orderModel.ToDomain(itemModels)
+		*o = r.mapper.ToDomain(orderModel, itemModels)
 		return nil
 	})
 }
@@ -58,11 +63,11 @@ func (r *OrderRepository) FindByID(ctx context.Context, id string) (order.Order,
 		return order.Order{}, err
 	}
 
-	return orderModel.ToDomain(itemModels), nil
+	return r.mapper.ToDomain(orderModel, itemModels), nil
 }
 
 func (r *OrderRepository) Update(ctx context.Context, o *order.Order) error {
-	orderModel, itemModels := OrderModelFromDomain(*o)
+	orderModel, itemModels := r.mapper.ToModel(*o)
 
 	// Generate IDs for new order items
 	for i := range itemModels {
@@ -91,7 +96,7 @@ func (r *OrderRepository) Update(ctx context.Context, o *order.Order) error {
 		}
 
 		// Update domain entity
-		*o = orderModel.ToDomain(itemModels)
+		*o = r.mapper.ToDomain(orderModel, itemModels)
 		return nil
 	})
 }
@@ -106,15 +111,16 @@ func (r *OrderRepository) ListByUser(ctx context.Context, userID string, limit i
 		return nil, err
 	}
 
-	orders := make([]order.Order, len(orderModels))
-	for i, orderModel := range orderModels {
+	// Build items map for efficient lookup
+	itemsMap := make(map[string][]OrderItemModel)
+	for _, orderModel := range orderModels {
 		var itemModels []OrderItemModel
 		if err := r.db.WithContext(ctx).Where("order_id = ?", orderModel.ID).Find(&itemModels).Error; err != nil {
 			return nil, err
 		}
-		orders[i] = orderModel.ToDomain(itemModels)
+		itemsMap[orderModel.ID] = itemModels
 	}
 
-	return orders, nil
+	return r.mapper.ToDomainList(orderModels, itemsMap), nil
 }
 

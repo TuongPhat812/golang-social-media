@@ -5,23 +5,24 @@ import (
 
 	"github.com/rs/zerolog"
 	"golang-social-media/apps/ecommerce-service/internal/application/command/contracts"
-	"golang-social-media/apps/ecommerce-service/internal/domain/order"
 	"golang-social-media/apps/ecommerce-service/internal/infrastructure/bootstrap"
+	"golang-social-media/apps/ecommerce-service/internal/interfaces/grpc/mappers"
 	"golang-social-media/pkg/logger"
 	ecommercev1 "golang-social-media/pkg/gen/ecommerce/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type OrderHandler struct {
 	ecommercev1.UnimplementedOrderServiceServer
-	deps *bootstrap.Dependencies
-	log  *zerolog.Logger
+	deps      *bootstrap.Dependencies
+	dtoMapper *mappers.OrderDTOMapper
+	log       *zerolog.Logger
 }
 
 func NewOrderHandler(deps *bootstrap.Dependencies) *OrderHandler {
 	return &OrderHandler{
-		deps: deps,
-		log:  logger.Component("ecommerce.grpc.order"),
+		deps:      deps,
+		dtoMapper: mappers.NewOrderDTOMapper(),
+		log:       logger.Component("ecommerce.grpc.order"),
 	}
 }
 
@@ -44,9 +45,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *ecommercev1.CreateO
 		Str("user_id", order.UserID).
 		Msg("order created")
 
-	return &ecommercev1.CreateOrderResponse{
-		Order: h.orderToProto(order),
-	}, nil
+	return h.dtoMapper.ToCreateOrderResponse(order), nil
 }
 
 func (h *OrderHandler) GetOrder(ctx context.Context, req *ecommercev1.GetOrderRequest) (*ecommercev1.GetOrderResponse, error) {
@@ -59,9 +58,7 @@ func (h *OrderHandler) GetOrder(ctx context.Context, req *ecommercev1.GetOrderRe
 		return nil, err
 	}
 
-	return &ecommercev1.GetOrderResponse{
-		Order: h.orderToProto(order),
-	}, nil
+	return h.dtoMapper.ToGetOrderResponse(order), nil
 }
 
 func (h *OrderHandler) ListUserOrders(ctx context.Context, req *ecommercev1.ListUserOrdersRequest) (*ecommercev1.ListUserOrdersResponse, error) {
@@ -74,14 +71,7 @@ func (h *OrderHandler) ListUserOrders(ctx context.Context, req *ecommercev1.List
 		return nil, err
 	}
 
-	pbOrders := make([]*ecommercev1.Order, len(orders))
-	for i, o := range orders {
-		pbOrders[i] = h.orderToProto(o)
-	}
-
-	return &ecommercev1.ListUserOrdersResponse{
-		Orders: pbOrders,
-	}, nil
+	return h.dtoMapper.ToListUserOrdersResponse(orders), nil
 }
 
 func (h *OrderHandler) AddOrderItem(ctx context.Context, req *ecommercev1.AddOrderItemRequest) (*ecommercev1.AddOrderItemResponse, error) {
@@ -107,9 +97,7 @@ func (h *OrderHandler) AddOrderItem(ctx context.Context, req *ecommercev1.AddOrd
 		Int("quantity", int(req.GetQuantity())).
 		Msg("order item added")
 
-	return &ecommercev1.AddOrderItemResponse{
-		Order: h.orderToProto(order),
-	}, nil
+	return h.dtoMapper.ToAddOrderItemResponse(order), nil
 }
 
 func (h *OrderHandler) ConfirmOrder(ctx context.Context, req *ecommercev1.ConfirmOrderRequest) (*ecommercev1.ConfirmOrderResponse, error) {
@@ -136,9 +124,7 @@ func (h *OrderHandler) ConfirmOrder(ctx context.Context, req *ecommercev1.Confir
 		Str("order_id", order.ID).
 		Msg("order confirmed")
 
-	return &ecommercev1.ConfirmOrderResponse{
-		Order: h.orderToProto(order),
-	}, nil
+	return h.dtoMapper.ToConfirmOrderResponse(order), nil
 }
 
 func (h *OrderHandler) CancelOrder(ctx context.Context, req *ecommercev1.CancelOrderRequest) (*ecommercev1.CancelOrderResponse, error) {
@@ -165,30 +151,6 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *ecommercev1.CancelO
 		Str("order_id", order.ID).
 		Msg("order cancelled")
 
-	return &ecommercev1.CancelOrderResponse{
-		Order: h.orderToProto(order),
-	}, nil
-}
-
-func (h *OrderHandler) orderToProto(o order.Order) *ecommercev1.Order {
-	pbItems := make([]*ecommercev1.OrderItem, len(o.Items))
-	for i, item := range o.Items {
-		pbItems[i] = &ecommercev1.OrderItem{
-			ProductId: item.ProductID,
-			Quantity:  int32(item.Quantity),
-			UnitPrice: item.UnitPrice,
-			SubTotal:  item.SubTotal,
-		}
-	}
-
-	return &ecommercev1.Order{
-		Id:          o.ID,
-		UserId:      o.UserID,
-		Status:      string(o.Status),
-		Items:       pbItems,
-		TotalAmount: o.TotalAmount,
-		CreatedAt:   timestamppb.New(o.CreatedAt),
-		UpdatedAt:   timestamppb.New(o.UpdatedAt),
-	}
+	return h.dtoMapper.ToCancelOrderResponse(order), nil
 }
 

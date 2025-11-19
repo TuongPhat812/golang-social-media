@@ -1,9 +1,10 @@
 package user
 
 import (
-	"errors"
 	"strings"
 	"time"
+
+	"golang-social-media/pkg/errors"
 )
 
 type User struct {
@@ -19,19 +20,19 @@ type User struct {
 // Validate validates business rules for the user
 func (u User) Validate() error {
 	if strings.TrimSpace(u.Email) == "" {
-		return errors.New("email cannot be empty")
+		return errors.NewValidationError(errors.CodeEmailRequired, nil)
 	}
 	if !strings.Contains(u.Email, "@") {
-		return errors.New("email must be valid")
+		return errors.NewValidationError(errors.CodeEmailInvalid, nil)
 	}
 	if strings.TrimSpace(u.Password) == "" {
-		return errors.New("password cannot be empty")
+		return errors.NewValidationError(errors.CodePasswordRequired, nil)
 	}
 	if len(u.Password) < 6 {
-		return errors.New("password must be at least 6 characters")
+		return errors.NewValidationError(errors.CodePasswordTooShort, nil)
 	}
 	if strings.TrimSpace(u.Name) == "" {
-		return errors.New("name cannot be empty")
+		return errors.NewValidationError(errors.CodeNameRequired, nil)
 	}
 	return nil
 }

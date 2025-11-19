@@ -1,9 +1,10 @@
 package message
 
 import (
-	"errors"
 	"strings"
 	"time"
+
+	"golang-social-media/pkg/errors"
 )
 
 type Message struct {
@@ -20,19 +21,21 @@ type Message struct {
 // Validate validates business rules for the message
 func (m Message) Validate() error {
 	if strings.TrimSpace(m.SenderID) == "" {
-		return errors.New("sender ID cannot be empty")
+		return errors.NewValidationError(errors.CodeSenderIDRequired, nil)
 	}
 	if strings.TrimSpace(m.ReceiverID) == "" {
-		return errors.New("receiver ID cannot be empty")
+		return errors.NewValidationError(errors.CodeReceiverIDRequired, nil)
 	}
 	if m.SenderID == m.ReceiverID {
-		return errors.New("sender and receiver cannot be the same")
+		return errors.NewValidationError(errors.CodeInvalidRequest, map[string]interface{}{
+			"reason": "sender and receiver cannot be the same",
+		})
 	}
 	if strings.TrimSpace(m.Content) == "" {
-		return errors.New("message content cannot be empty")
+		return errors.NewValidationError(errors.CodeMessageContentRequired, nil)
 	}
 	if len(m.Content) > 5000 {
-		return errors.New("message content cannot exceed 5000 characters")
+		return errors.NewValidationError(errors.CodeMessageContentTooLong, nil)
 	}
 	return nil
 }

@@ -12,18 +12,22 @@ import (
 var _ messages.Repository = (*MessageRepository)(nil)
 
 type MessageRepository struct {
-	db *gorm.DB
+	db     *gorm.DB
+	mapper *MessageMapper
 }
 
 func NewMessageRepository(db *gorm.DB) *MessageRepository {
-	return &MessageRepository{db: db}
+	return &MessageRepository{
+		db:     db,
+		mapper: NewMessageMapper(),
+	}
 }
 
 func (r *MessageRepository) Create(ctx context.Context, msg *domain.Message) error {
-	model := MessageModelFromDomain(*msg)
+	model := r.mapper.ToModel(*msg)
 	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
 		return err
 	}
-	*msg = model.ToDomain()
+	*msg = r.mapper.ToDomain(model)
 	return nil
 }

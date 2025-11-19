@@ -7,21 +7,23 @@ import (
 	"golang-social-media/apps/ecommerce-service/internal/application/command/contracts"
 	querycontracts "golang-social-media/apps/ecommerce-service/internal/application/query/contracts"
 	"golang-social-media/apps/ecommerce-service/internal/infrastructure/bootstrap"
+	"golang-social-media/apps/ecommerce-service/internal/interfaces/grpc/mappers"
 	"golang-social-media/pkg/logger"
 	ecommercev1 "golang-social-media/pkg/gen/ecommerce/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ProductHandler struct {
 	ecommercev1.UnimplementedProductServiceServer
-	deps *bootstrap.Dependencies
-	log  *zerolog.Logger
+	deps      *bootstrap.Dependencies
+	dtoMapper *mappers.ProductDTOMapper
+	log       *zerolog.Logger
 }
 
 func NewProductHandler(deps *bootstrap.Dependencies) *ProductHandler {
 	return &ProductHandler{
-		deps: deps,
-		log:  logger.Component("ecommerce.grpc.product"),
+		deps:      deps,
+		dtoMapper: mappers.NewProductDTOMapper(),
+		log:       logger.Component("ecommerce.grpc.product"),
 	}
 }
 
@@ -47,18 +49,7 @@ func (h *ProductHandler) CreateProduct(ctx context.Context, req *ecommercev1.Cre
 		Str("name", product.Name).
 		Msg("product created")
 
-	return &ecommercev1.CreateProductResponse{
-		Product: &ecommercev1.Product{
-			Id:          product.ID,
-			Name:        product.Name,
-			Description: product.Description,
-			Price:       product.Price,
-			Stock:       int32(product.Stock),
-			Status:      string(product.Status),
-			CreatedAt:   timestamppb.New(product.CreatedAt),
-			UpdatedAt:   timestamppb.New(product.UpdatedAt),
-		},
-	}, nil
+	return h.dtoMapper.ToCreateProductResponse(product), nil
 }
 
 func (h *ProductHandler) GetProduct(ctx context.Context, req *ecommercev1.GetProductRequest) (*ecommercev1.GetProductResponse, error) {
@@ -71,18 +62,7 @@ func (h *ProductHandler) GetProduct(ctx context.Context, req *ecommercev1.GetPro
 		return nil, err
 	}
 
-	return &ecommercev1.GetProductResponse{
-		Product: &ecommercev1.Product{
-			Id:          product.ID,
-			Name:        product.Name,
-			Description: product.Description,
-			Price:       product.Price,
-			Stock:       int32(product.Stock),
-			Status:      string(product.Status),
-			CreatedAt:   timestamppb.New(product.CreatedAt),
-			UpdatedAt:   timestamppb.New(product.UpdatedAt),
-		},
-	}, nil
+	return h.dtoMapper.ToGetProductResponse(product), nil
 }
 
 func (h *ProductHandler) ListProducts(ctx context.Context, req *ecommercev1.ListProductsRequest) (*ecommercev1.ListProductsResponse, error) {
@@ -100,23 +80,7 @@ func (h *ProductHandler) ListProducts(ctx context.Context, req *ecommercev1.List
 		return nil, err
 	}
 
-	pbProducts := make([]*ecommercev1.Product, len(products))
-	for i, p := range products {
-		pbProducts[i] = &ecommercev1.Product{
-			Id:          p.ID,
-			Name:        p.Name,
-			Description: p.Description,
-			Price:       p.Price,
-			Stock:       int32(p.Stock),
-			Status:      string(p.Status),
-			CreatedAt:   timestamppb.New(p.CreatedAt),
-			UpdatedAt:   timestamppb.New(p.UpdatedAt),
-		}
-	}
-
-	return &ecommercev1.ListProductsResponse{
-		Products: pbProducts,
-	}, nil
+	return h.dtoMapper.ToListProductsResponse(products), nil
 }
 
 func (h *ProductHandler) UpdateProductStock(ctx context.Context, req *ecommercev1.UpdateProductStockRequest) (*ecommercev1.UpdateProductStockResponse, error) {
@@ -140,17 +104,6 @@ func (h *ProductHandler) UpdateProductStock(ctx context.Context, req *ecommercev
 		return nil, err
 	}
 
-	return &ecommercev1.UpdateProductStockResponse{
-		Product: &ecommercev1.Product{
-			Id:          product.ID,
-			Name:        product.Name,
-			Description: product.Description,
-			Price:       product.Price,
-			Stock:       int32(product.Stock),
-			Status:      string(product.Status),
-			CreatedAt:   timestamppb.New(product.CreatedAt),
-			UpdatedAt:   timestamppb.New(product.UpdatedAt),
-		},
-	}, nil
+	return h.dtoMapper.ToUpdateProductStockResponse(product), nil
 }
 

@@ -5,13 +5,14 @@ import (
 	"sync"
 
 	"golang-social-media/apps/auth-service/internal/domain/user"
+	"golang-social-media/pkg/errors"
 )
 
 var (
-	ErrEmailExists   = errors.New("email already registered")
-	ErrInvalidAuth   = errors.New("invalid credentials")
-	ErrUserNotFound  = errors.New("user not found")
-	ErrTokenNotFound = errors.New("token not found")
+	ErrEmailExists   = errors.NewConflictError(errors.CodeEmailAlreadyExists)
+	ErrInvalidAuth   = errors.NewValidationError(errors.CodeInvalidCredentials, nil)
+	ErrUserNotFound  = errors.NewNotFoundError(errors.CodeUserNotFound)
+	ErrTokenNotFound = errors.NewNotFoundError(errors.CodeTokenInvalid)
 )
 
 type UserRepository struct {

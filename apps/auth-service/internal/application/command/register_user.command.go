@@ -2,24 +2,27 @@ package command
 
 import (
 	"context"
+	"strings"
 
-	"github.com/rs/zerolog"
 	"golang-social-media/apps/auth-service/internal/application/command/contracts"
 	event_dispatcher "golang-social-media/apps/auth-service/internal/application/event_dispatcher"
 	"golang-social-media/apps/auth-service/internal/domain/user"
 	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/memory"
 	"golang-social-media/apps/auth-service/internal/pkg/random"
 	"golang-social-media/pkg/contracts/auth"
+	"golang-social-media/pkg/errors"
 	"golang-social-media/pkg/logger"
+
+	"github.com/rs/zerolog"
 )
 
 var _ contracts.RegisterUserCommand = (*registerUserCommand)(nil)
 
 type registerUserCommand struct {
-	repo           *memory.UserRepository
+	repo            *memory.UserRepository
 	eventDispatcher *event_dispatcher.Dispatcher
-	idFn           func() string
-	log            *zerolog.Logger
+	idFn            func() string
+	log             *zerolog.Logger
 }
 
 func NewRegisterUserCommand(
@@ -33,10 +36,10 @@ func NewRegisterUserCommand(
 		}
 	}
 	return &registerUserCommand{
-		repo:           repo,
+		repo:            repo,
 		eventDispatcher: eventDispatcher,
-		idFn:           idFn,
-		log:            logger.Component("auth.command.register_user"),
+		idFn:            idFn,
+		log:             logger.Component("auth.command.register_user"),
 	}
 }
 
@@ -66,6 +69,10 @@ func (c *registerUserCommand) Execute(ctx context.Context, req auth.RegisterRequ
 			Err(err).
 			Str("email", req.Email).
 			Msg("failed to persist user")
+		// Check if it's a duplicate email error
+		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "already exists") {
+			return auth.RegisterResponse{}, errors.NewConflictError(errors.CodeEmailAlreadyExists)
+		}
 		return auth.RegisterResponse{}, err
 	}
 
