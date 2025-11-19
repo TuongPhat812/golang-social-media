@@ -1,9 +1,27 @@
 package mappers
 
 import (
+	"time"
+
 	"golang-social-media/apps/ecommerce-service/internal/domain/product"
-	"golang-social-media/apps/ecommerce-service/internal/infrastructure/persistence/postgres"
 )
+
+// ProductModel represents the database model for Product
+// This is defined here to avoid import cycle
+type ProductModel struct {
+	ID          string    `gorm:"column:id;type:uuid;primaryKey"`
+	Name        string    `gorm:"column:name;type:text;not null"`
+	Description string    `gorm:"column:description;type:text"`
+	Price       float64   `gorm:"column:price;type:decimal(10,2);not null"`
+	Stock       int       `gorm:"column:stock;type:integer;not null;default:0"`
+	Status      string    `gorm:"column:status;type:text;not null"`
+	CreatedAt   time.Time `gorm:"column:created_at;not null"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;not null"`
+}
+
+func (ProductModel) TableName() string {
+	return "products"
+}
 
 // ProductMapper maps between domain Product and persistence models
 type ProductMapper struct{}
@@ -14,8 +32,8 @@ func NewProductMapper() *ProductMapper {
 }
 
 // ToModel converts a domain Product to ProductModel
-func (m *ProductMapper) ToModel(p product.Product) postgres.ProductModel {
-	return postgres.ProductModel{
+func (m *ProductMapper) ToModel(p product.Product) ProductModel {
+	return ProductModel{
 		ID:          p.ID,
 		Name:        p.Name,
 		Description: p.Description,
@@ -28,7 +46,7 @@ func (m *ProductMapper) ToModel(p product.Product) postgres.ProductModel {
 }
 
 // ToDomain converts a ProductModel to domain Product
-func (m *ProductMapper) ToDomain(model postgres.ProductModel) product.Product {
+func (m *ProductMapper) ToDomain(model ProductModel) product.Product {
 	return product.Product{
 		ID:          model.ID,
 		Name:        model.Name,
@@ -42,7 +60,7 @@ func (m *ProductMapper) ToDomain(model postgres.ProductModel) product.Product {
 }
 
 // ToDomainList converts a slice of ProductModel to domain Products
-func (m *ProductMapper) ToDomainList(models []postgres.ProductModel) []product.Product {
+func (m *ProductMapper) ToDomainList(models []ProductModel) []product.Product {
 	products := make([]product.Product, len(models))
 	for i, model := range models {
 		products[i] = m.ToDomain(model)
@@ -51,8 +69,8 @@ func (m *ProductMapper) ToDomainList(models []postgres.ProductModel) []product.P
 }
 
 // ToModelList converts a slice of domain Products to ProductModels
-func (m *ProductMapper) ToModelList(products []product.Product) []postgres.ProductModel {
-	models := make([]postgres.ProductModel, len(products))
+func (m *ProductMapper) ToModelList(products []product.Product) []ProductModel {
+	models := make([]ProductModel, len(products))
 	for i, p := range products {
 		models[i] = m.ToModel(p)
 	}

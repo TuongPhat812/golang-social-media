@@ -11,11 +11,15 @@ import (
 	appproducts "golang-social-media/apps/ecommerce-service/internal/application/products"
 	appquery "golang-social-media/apps/ecommerce-service/internal/application/query"
 	querycontracts "golang-social-media/apps/ecommerce-service/internal/application/query/contracts"
+	unit_of_work "golang-social-media/apps/ecommerce-service/internal/application/unit_of_work"
+	"golang-social-media/apps/ecommerce-service/internal/infrastructure/cache"
 	eventbuspublisher "golang-social-media/apps/ecommerce-service/internal/infrastructure/eventbus/publisher"
-	"golang-social-media/apps/ecommerce-service/internal/infrastructure/persistence/postgres"
+	"golang-social-media/apps/ecommerce-service/internal/infrastructure/eventstore"
+	"golang-social-media/apps/ecommerce-service/internal/infrastructure/outbox"
+	postgrespersistence "golang-social-media/apps/ecommerce-service/internal/infrastructure/persistence/postgres"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
-	"gorm.io/driver/postgres"
+	postgresdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +29,13 @@ type Dependencies struct {
 	Publisher             *eventbuspublisher.KafkaPublisher
 	ProductRepo           appproducts.Repository
 	OrderRepo             apporders.Repository
+	UoWFactory            unit_of_work.Factory
 	EventDispatcher       *event_dispatcher.Dispatcher
+	OutboxService         *outbox.OutboxService
+	OutboxProcessor       *outbox.Processor
+	EventStore            *eventstore.EventStoreService
+	Cache                 cache.Cache
+	BatchRepo             *postgrespersistence.BatchRepository
 	CreateProductCmd      commandcontracts.CreateProductCommand
 	UpdateProductStockCmd commandcontracts.UpdateProductStockCommand
 	CreateOrderCmd        commandcontracts.CreateOrderCommand
@@ -46,9 +56,33 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 		return nil, err
 	}
 
-	// Setup repositories
-	productRepo := postgres.NewProductRepository(db)
-	orderRepo := postgres.NewOrderRepository(db)
+	// Setup Redis cache
+	redisCache, err := setupCache()
+	if err != nil {
+		logger.Component("ecommerce.bootstrap").
+			Warn().
+			Err(err).
+			Msg("failed to setup cache, continuing without cache")
+		redisCache = nil
+	}
+
+	// Setup cache wrappers
+	var productCache *cache.ProductCache
+	var orderCache *cache.OrderCache
+	if redisCache != nil {
+		productCache = cache.NewProductCache(redisCache)
+		orderCache = cache.NewOrderCache(redisCache)
+	}
+
+	// Setup repositories with cache
+	productRepo := postgrespersistence.NewProductRepository(db, productCache)
+	orderRepo := postgrespersistence.NewOrderRepository(db, orderCache)
+
+	// Setup batch repository
+	batchRepo := postgrespersistence.NewBatchRepository(db)
+
+	// Setup Unit of Work factory
+	uowFactory := postgrespersistence.NewUnitOfWorkFactory(db)
 
 	// Setup event bus publisher
 	publisher, err := setupPublisher()
@@ -56,11 +90,20 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 		return nil, err
 	}
 
-	// Setup event dispatcher
+	// Setup event dispatcher (for backward compatibility)
 	eventDispatcher := setupEventDispatcher(publisher)
 
+	// Setup Outbox
+	outboxRepo := postgrespersistence.NewOutboxRepository(db)
+	outboxService := outbox.NewOutboxService(outboxRepo)
+	outboxProcessor := outbox.NewProcessor(outboxRepo, publisher)
+
+	// Setup Event Store
+	eventStoreRepo := postgrespersistence.NewEventStoreRepository(db)
+	eventStoreService := eventstore.NewEventStoreService(eventStoreRepo)
+
 	// Setup commands
-	commands := setupCommands(productRepo, orderRepo, eventDispatcher)
+	commands := setupCommands(uowFactory, productRepo, orderRepo, eventDispatcher, outboxService, eventStoreService)
 
 	// Setup queries
 	queries := setupQueries(productRepo, orderRepo)
@@ -74,7 +117,13 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 		Publisher:             publisher,
 		ProductRepo:           productRepo,
 		OrderRepo:             orderRepo,
+		UoWFactory:            uowFactory,
 		EventDispatcher:       eventDispatcher,
+		OutboxService:         outboxService,
+		OutboxProcessor:       outboxProcessor,
+		EventStore:            eventStoreService,
+		Cache:                 redisCache,
+		BatchRepo:             batchRepo,
 		CreateProductCmd:       commands.CreateProduct,
 		UpdateProductStockCmd: commands.UpdateProductStock,
 		CreateOrderCmd:        commands.CreateOrder,
@@ -90,7 +139,8 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 
 func setupDatabase() (*gorm.DB, error) {
 	dsn := config.GetEnv("ECOMMERCE_DATABASE_DSN", "postgres://ecommerce_user:ecommerce_password@localhost:5432/ecommerce_service?sslmode=disable")
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	
+	db, err := gorm.Open(postgresdriver.Open(dsn), &gorm.Config{})
 	if err != nil {
 		logger.Component("ecommerce.bootstrap").
 			Error().
@@ -99,9 +149,26 @@ func setupDatabase() (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// Configure connection pooling
+	sqlDB, err := db.DB()
+	if err != nil {
+		logger.Component("ecommerce.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to get underlying sql.DB")
+		return nil, err
+	}
+
+	// Set connection pool settings
+	sqlDB.SetMaxOpenConns(25)                 // Maximum number of open connections
+	sqlDB.SetMaxIdleConns(10)                 // Maximum number of idle connections
+	sqlDB.SetConnMaxLifetime(5 * 60 * 1000000000) // 5 minutes
+
 	logger.Component("ecommerce.bootstrap").
 		Info().
-		Msg("database connected")
+		Int("max_open_conns", 25).
+		Int("max_idle_conns", 10).
+		Msg("database connected with connection pooling")
 
 	return db, nil
 }
@@ -122,6 +189,25 @@ func setupPublisher() (*eventbuspublisher.KafkaPublisher, error) {
 		Msg("kafka publisher initialized")
 
 	return publisher, nil
+}
+
+func setupCache() (cache.Cache, error) {
+	addr := config.GetEnv("REDIS_ADDR", "localhost:6379")
+	password := config.GetEnv("REDIS_PASSWORD", "")
+	db := config.GetEnvInt("REDIS_DB", 0)
+
+	redisCache, err := cache.NewRedisCache(addr, password, db)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Component("ecommerce.bootstrap").
+		Info().
+		Str("addr", addr).
+		Int("db", db).
+		Msg("redis cache initialized")
+
+	return redisCache, nil
 }
 
 func setupEventDispatcher(publisher *eventbuspublisher.KafkaPublisher) *event_dispatcher.Dispatcher {
@@ -193,16 +279,19 @@ type commands struct {
 }
 
 func setupCommands(
+	uowFactory unit_of_work.Factory,
 	productRepo appproducts.Repository,
 	orderRepo apporders.Repository,
 	eventDispatcher *event_dispatcher.Dispatcher,
+	outboxService *outbox.OutboxService,
+	eventStore *eventstore.EventStoreService,
 ) commands {
 	createProductCmd := appcommand.NewCreateProductCommand(productRepo, eventDispatcher)
 	updateProductStockCmd := appcommand.NewUpdateProductStockCommand(productRepo, eventDispatcher)
-	createOrderCmd := appcommand.NewCreateOrderCommand(orderRepo, eventDispatcher)
-	addOrderItemCmd := appcommand.NewAddOrderItemCommand(orderRepo, productRepo, eventDispatcher)
-	confirmOrderCmd := appcommand.NewConfirmOrderCommand(orderRepo, productRepo, eventDispatcher)
-	cancelOrderCmd := appcommand.NewCancelOrderCommand(orderRepo, productRepo, eventDispatcher)
+	createOrderCmd := appcommand.NewCreateOrderCommand(uowFactory, outboxService, eventStore)
+	addOrderItemCmd := appcommand.NewAddOrderItemCommand(uowFactory, eventDispatcher)
+	confirmOrderCmd := appcommand.NewConfirmOrderCommand(uowFactory, eventDispatcher)
+	cancelOrderCmd := appcommand.NewCancelOrderCommand(uowFactory, eventDispatcher)
 
 	logger.Component("ecommerce.bootstrap").
 		Info().

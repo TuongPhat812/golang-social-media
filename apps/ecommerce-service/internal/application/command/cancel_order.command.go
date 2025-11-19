@@ -5,8 +5,7 @@ import (
 
 	"golang-social-media/apps/ecommerce-service/internal/application/command/contracts"
 	event_dispatcher "golang-social-media/apps/ecommerce-service/internal/application/event_dispatcher"
-	"golang-social-media/apps/ecommerce-service/internal/application/orders"
-	"golang-social-media/apps/ecommerce-service/internal/application/products"
+	"golang-social-media/apps/ecommerce-service/internal/application/unit_of_work"
 	"golang-social-media/apps/ecommerce-service/internal/domain/order"
 	"golang-social-media/pkg/logger"
 
@@ -16,28 +15,35 @@ import (
 var _ contracts.CancelOrderCommand = (*cancelOrderCommand)(nil)
 
 type cancelOrderCommand struct {
-	orderRepo       orders.Repository
-	productRepo     products.Repository
+	uowFactory      unit_of_work.Factory
 	eventDispatcher *event_dispatcher.Dispatcher
 	log             *zerolog.Logger
 }
 
 func NewCancelOrderCommand(
-	orderRepo orders.Repository,
-	productRepo products.Repository,
+	uowFactory unit_of_work.Factory,
 	eventDispatcher *event_dispatcher.Dispatcher,
 ) contracts.CancelOrderCommand {
 	return &cancelOrderCommand{
-		orderRepo:       orderRepo,
-		productRepo:     productRepo,
+		uowFactory:      uowFactory,
 		eventDispatcher: eventDispatcher,
 		log:             logger.Component("ecommerce.command.cancel_order"),
 	}
 }
 
 func (c *cancelOrderCommand) Execute(ctx context.Context, orderID string) error {
-	// Load order
-	orderModel, err := c.orderRepo.FindByID(ctx, orderID)
+	// Create unit of work
+	uow, err := c.uowFactory.New(ctx)
+	if err != nil {
+		c.log.Error().
+			Err(err).
+			Msg("failed to create unit of work")
+		return err
+	}
+	defer uow.Rollback() // Ensure rollback if commit fails
+
+	// Load order using UoW repository
+	orderModel, err := uow.Orders().FindByID(ctx, orderID)
 	if err != nil {
 		c.log.Error().
 			Err(err).
@@ -58,8 +64,8 @@ func (c *cancelOrderCommand) Execute(ctx context.Context, orderID string) error 
 	// Save domain events BEFORE persisting
 	domainEvents := orderModel.Events()
 
-	// Update order status
-	if err := c.orderRepo.Update(ctx, &orderModel); err != nil {
+	// Update order status using UoW repository
+	if err := uow.Orders().Update(ctx, &orderModel); err != nil {
 		c.log.Error().
 			Err(err).
 			Str("order_id", orderID).
@@ -67,16 +73,16 @@ func (c *cancelOrderCommand) Execute(ctx context.Context, orderID string) error 
 		return err
 	}
 
-	// If order was confirmed, restore stock
+	// If order was confirmed, restore stock using UoW repository
 	if orderModel.Status == order.StatusCancelled {
 		for _, item := range orderModel.Items {
-			productModel, err := c.productRepo.FindByID(ctx, item.ProductID)
+			productModel, err := uow.Products().FindByID(ctx, item.ProductID)
 			if err != nil {
 				c.log.Error().
 					Err(err).
 					Str("product_id", item.ProductID).
 					Msg("failed to find product for stock restoration")
-				continue
+				return err
 			}
 
 			if err := productModel.IncreaseStock(item.Quantity); err != nil {
@@ -84,18 +90,18 @@ func (c *cancelOrderCommand) Execute(ctx context.Context, orderID string) error 
 					Err(err).
 					Str("product_id", item.ProductID).
 					Msg("failed to increase stock")
-				continue
+				return err
 			}
 
 			// Save product stock events
 			productEvents := productModel.Events()
 
-			if err := c.productRepo.Update(ctx, &productModel); err != nil {
+			if err := uow.Products().Update(ctx, &productModel); err != nil {
 				c.log.Error().
 					Err(err).
 					Str("product_id", item.ProductID).
 					Msg("failed to update product stock")
-				continue
+				return err
 			}
 
 			// Dispatch product stock events
@@ -110,6 +116,15 @@ func (c *cancelOrderCommand) Execute(ctx context.Context, orderID string) error 
 				}
 			}
 		}
+	}
+
+	// Commit transaction
+	if err := uow.Commit(); err != nil {
+		c.log.Error().
+			Err(err).
+			Str("order_id", orderID).
+			Msg("failed to commit transaction")
+		return err
 	}
 
 	// Dispatch order events AFTER successful persistence

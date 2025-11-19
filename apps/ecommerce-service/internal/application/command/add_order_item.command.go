@@ -6,8 +6,7 @@ import (
 
 	"golang-social-media/apps/ecommerce-service/internal/application/command/contracts"
 	event_dispatcher "golang-social-media/apps/ecommerce-service/internal/application/event_dispatcher"
-	"golang-social-media/apps/ecommerce-service/internal/application/orders"
-	"golang-social-media/apps/ecommerce-service/internal/application/products"
+	"golang-social-media/apps/ecommerce-service/internal/application/unit_of_work"
 	"golang-social-media/apps/ecommerce-service/internal/domain/order"
 	"golang-social-media/pkg/logger"
 
@@ -17,28 +16,35 @@ import (
 var _ contracts.AddOrderItemCommand = (*addOrderItemCommand)(nil)
 
 type addOrderItemCommand struct {
-	orderRepo       orders.Repository
-	productRepo     products.Repository
+	uowFactory      unit_of_work.Factory
 	eventDispatcher *event_dispatcher.Dispatcher
 	log             *zerolog.Logger
 }
 
 func NewAddOrderItemCommand(
-	orderRepo orders.Repository,
-	productRepo products.Repository,
+	uowFactory unit_of_work.Factory,
 	eventDispatcher *event_dispatcher.Dispatcher,
 ) contracts.AddOrderItemCommand {
 	return &addOrderItemCommand{
-		orderRepo:       orderRepo,
-		productRepo:     productRepo,
+		uowFactory:      uowFactory,
 		eventDispatcher: eventDispatcher,
 		log:             logger.Component("ecommerce.command.add_order_item"),
 	}
 }
 
 func (c *addOrderItemCommand) Execute(ctx context.Context, req contracts.AddOrderItemCommandRequest) (order.Order, error) {
-	// Load order
-	orderModel, err := c.orderRepo.FindByID(ctx, req.OrderID)
+	// Create unit of work
+	uow, err := c.uowFactory.New(ctx)
+	if err != nil {
+		c.log.Error().
+			Err(err).
+			Msg("failed to create unit of work")
+		return order.Order{}, err
+	}
+	defer uow.Rollback() // Ensure rollback if commit fails
+
+	// Load order using UoW repository
+	orderModel, err := uow.Orders().FindByID(ctx, req.OrderID)
 	if err != nil {
 		c.log.Error().
 			Err(err).
@@ -47,8 +53,8 @@ func (c *addOrderItemCommand) Execute(ctx context.Context, req contracts.AddOrde
 		return order.Order{}, err
 	}
 
-	// Load product to get current price and check availability
-	productModel, err := c.productRepo.FindByID(ctx, req.ProductID)
+	// Load product using UoW repository
+	productModel, err := uow.Products().FindByID(ctx, req.ProductID)
 	if err != nil {
 		c.log.Error().
 			Err(err).
@@ -99,12 +105,21 @@ func (c *addOrderItemCommand) Execute(ctx context.Context, req contracts.AddOrde
 	// Save domain events BEFORE persisting
 	domainEvents := orderModel.Events()
 
-	// Persist updated order
-	if err := c.orderRepo.Update(ctx, &orderModel); err != nil {
+	// Persist updated order using UoW repository
+	if err := uow.Orders().Update(ctx, &orderModel); err != nil {
 		c.log.Error().
 			Err(err).
 			Str("order_id", req.OrderID).
 			Msg("failed to update order")
+		return order.Order{}, err
+	}
+
+	// Commit transaction
+	if err := uow.Commit(); err != nil {
+		c.log.Error().
+			Err(err).
+			Str("order_id", req.OrderID).
+			Msg("failed to commit transaction")
 		return order.Order{}, err
 	}
 

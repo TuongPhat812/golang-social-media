@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"golang-social-media/apps/chat-service/internal/application/command/contracts"
 	event_dispatcher "golang-social-media/apps/chat-service/internal/application/event_dispatcher"
+	"golang-social-media/apps/chat-service/internal/domain/factories"
 	"golang-social-media/apps/chat-service/internal/domain/message"
 	"golang-social-media/apps/chat-service/internal/infrastructure/persistence"
 	"golang-social-media/pkg/logger"
@@ -16,9 +16,10 @@ import (
 var _ contracts.CreateMessageCommand = (*createMessageCommand)(nil)
 
 type createMessageCommand struct {
-	repo           *persistence.MessageRepository
+	repo            *persistence.MessageRepository
+	messageFactory  *factories.MessageFactory
 	eventDispatcher *event_dispatcher.Dispatcher
-	log            *zerolog.Logger
+	log             *zerolog.Logger
 }
 
 func NewCreateMessageCommand(
@@ -26,55 +27,39 @@ func NewCreateMessageCommand(
 	eventDispatcher *event_dispatcher.Dispatcher,
 ) contracts.CreateMessageCommand {
 	return &createMessageCommand{
-		repo:           repo,
+		repo:            repo,
+		messageFactory:  factories.NewMessageFactory(),
 		eventDispatcher: eventDispatcher,
-		log:            logger.Component("chat.command.create_message"),
+		log:             logger.Component("chat.command.create_message"),
 	}
 }
 
 func (c *createMessageCommand) Execute(ctx context.Context, req contracts.CreateMessageCommandRequest) (message.Message, error) {
 	startTime := time.Now()
 
-	// Create message model
+	// Use factory to create message
 	modelStart := time.Now()
-	createdAt := time.Now().UTC()
-	messageModel := message.Message{
-		ID:         uuid.NewString(),
-		SenderID:   req.SenderID,
-		ReceiverID: req.ReceiverID,
-		Content:    req.Content,
-		CreatedAt:  createdAt,
-	}
-	modelDuration := time.Since(modelStart)
-
-	// Validate business rules before persisting or publishing
-	validateStart := time.Now()
-	if err := messageModel.Validate(); err != nil {
-		validateDuration := time.Since(validateStart)
+	messageModel, err := c.messageFactory.CreateMessage(req.SenderID, req.ReceiverID, req.Content)
+	if err != nil {
+		modelDuration := time.Since(modelStart)
 		totalDuration := time.Since(startTime)
 		c.log.Error().
 			Err(err).
 			Str("sender_id", req.SenderID).
 			Str("receiver_id", req.ReceiverID).
 			Dur("model_create_ms", modelDuration).
-			Dur("validate_ms", validateDuration).
 			Dur("total_ms", totalDuration).
-			Msg("message validation failed")
+			Msg("failed to create message using factory")
 		return message.Message{}, err
 	}
-	validateDuration := time.Since(validateStart)
-
-	// Domain logic: create message (this adds domain events internally)
-	domainStart := time.Now()
-	messageModel.Create()
-	domainDuration := time.Since(domainStart)
+	modelDuration := time.Since(modelStart)
 
 	// Save domain events BEFORE persisting (repository might overwrite the message)
 	domainEvents := messageModel.Events()
 
 	// Persist to database
 	dbStart := time.Now()
-	if err := c.repo.Create(ctx, &messageModel); err != nil {
+	if err := c.repo.Create(ctx, messageModel); err != nil {
 		dbDuration := time.Since(dbStart)
 		totalDuration := time.Since(startTime)
 		c.log.Error().
@@ -82,8 +67,6 @@ func (c *createMessageCommand) Execute(ctx context.Context, req contracts.Create
 			Str("sender_id", req.SenderID).
 			Str("receiver_id", req.ReceiverID).
 			Dur("model_create_ms", modelDuration).
-			Dur("validate_ms", validateDuration).
-			Dur("domain_logic_ms", domainDuration).
 			Dur("db_persist_ms", dbDuration).
 			Dur("total_ms", totalDuration).
 			Msg("failed to persist message")
@@ -130,13 +113,11 @@ func (c *createMessageCommand) Execute(ctx context.Context, req contracts.Create
 		Str("sender_id", messageModel.SenderID).
 		Str("receiver_id", messageModel.ReceiverID).
 		Dur("model_create_ms", modelDuration).
-		Dur("validate_ms", validateDuration).
-		Dur("domain_logic_ms", domainDuration).
 		Dur("db_persist_ms", dbDuration).
 		Dur("event_dispatch_ms", dispatchDuration).
 		Dur("total_ms", totalDuration).
 		Msg("message created")
 
-	return messageModel, nil
+	return *messageModel, nil
 }
 

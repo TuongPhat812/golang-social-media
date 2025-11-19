@@ -6,9 +6,8 @@ import (
 
 	"golang-social-media/apps/auth-service/internal/application/command/contracts"
 	event_dispatcher "golang-social-media/apps/auth-service/internal/application/event_dispatcher"
-	"golang-social-media/apps/auth-service/internal/domain/user"
+	"golang-social-media/apps/auth-service/internal/domain/factories"
 	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/memory"
-	"golang-social-media/apps/auth-service/internal/pkg/random"
 	"golang-social-media/pkg/contracts/auth"
 	"golang-social-media/pkg/errors"
 	"golang-social-media/pkg/logger"
@@ -20,8 +19,8 @@ var _ contracts.RegisterUserCommand = (*registerUserCommand)(nil)
 
 type registerUserCommand struct {
 	repo            *memory.UserRepository
+	userFactory     *factories.UserFactory
 	eventDispatcher *event_dispatcher.Dispatcher
-	idFn            func() string
 	log             *zerolog.Logger
 }
 
@@ -30,41 +29,34 @@ func NewRegisterUserCommand(
 	eventDispatcher *event_dispatcher.Dispatcher,
 	idFn func() string,
 ) contracts.RegisterUserCommand {
-	if idFn == nil {
-		idFn = func() string {
-			return "user-" + random.String(8)
-		}
+	var factory *factories.UserFactory
+	if idFn != nil {
+		factory = factories.NewUserFactoryWithIDGenerator(idFn)
+	} else {
+		factory = factories.NewUserFactory()
 	}
+
 	return &registerUserCommand{
 		repo:            repo,
+		userFactory:     factory,
 		eventDispatcher: eventDispatcher,
-		idFn:            idFn,
 		log:             logger.Component("auth.command.register_user"),
 	}
 }
 
 func (c *registerUserCommand) Execute(ctx context.Context, req auth.RegisterRequest) (auth.RegisterResponse, error) {
-	userModel := user.User{
-		ID:       c.idFn(),
-		Email:    req.Email,
-		Password: req.Password,
-		Name:     req.Name,
-	}
-
-	// Validate business rules before persisting or publishing
-	if err := userModel.Validate(); err != nil {
+	// Use factory to create user
+	userModel, err := c.userFactory.CreateUser(req.Email, req.Password, req.Name)
+	if err != nil {
 		c.log.Error().
 			Err(err).
 			Str("email", req.Email).
-			Msg("user validation failed")
+			Msg("failed to create user using factory")
 		return auth.RegisterResponse{}, err
 	}
 
-	// Domain logic: create user (this adds domain events internally)
-	userModel.Create()
-
 	// Persist to database
-	if err := c.repo.Create(userModel); err != nil {
+	if err := c.repo.Create(*userModel); err != nil {
 		c.log.Error().
 			Err(err).
 			Str("email", req.Email).

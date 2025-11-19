@@ -37,6 +37,11 @@ func main() {
 		Info().
 		Msg("ecommerce service ready")
 
+	// Start outbox processor in background
+	go func() {
+		deps.OutboxProcessor.Start(ctx)
+	}()
+
 	// Start gRPC server
 	port := config.GetEnvInt("ECOMMERCE_SERVICE_PORT", 9200)
 	addr := fmt.Sprintf(":%d", port)
@@ -60,6 +65,14 @@ func cleanup(deps *bootstrap.Dependencies) {
 				Error().
 				Err(err).
 				Msg("failed to close kafka publisher")
+		}
+	}
+	if deps.Cache != nil {
+		if err := deps.Cache.Close(); err != nil {
+			logger.Component("ecommerce.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close redis cache")
 		}
 	}
 }

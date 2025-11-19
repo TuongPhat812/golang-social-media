@@ -2,66 +2,69 @@ package command
 
 import (
 	"context"
-	"time"
 
 	"golang-social-media/apps/ecommerce-service/internal/application/command/contracts"
-	event_dispatcher "golang-social-media/apps/ecommerce-service/internal/application/event_dispatcher"
-	"golang-social-media/apps/ecommerce-service/internal/application/orders"
+	"golang-social-media/apps/ecommerce-service/internal/application/unit_of_work"
+	"golang-social-media/apps/ecommerce-service/internal/domain/factories"
 	"golang-social-media/apps/ecommerce-service/internal/domain/order"
+	"golang-social-media/apps/ecommerce-service/internal/infrastructure/eventstore"
+	"golang-social-media/apps/ecommerce-service/internal/infrastructure/outbox"
 	"golang-social-media/pkg/logger"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
 var _ contracts.CreateOrderCommand = (*createOrderCommand)(nil)
 
 type createOrderCommand struct {
-	repo            orders.Repository
-	eventDispatcher *event_dispatcher.Dispatcher
-	log             *zerolog.Logger
+	uowFactory     unit_of_work.Factory
+	orderFactory  *factories.OrderFactory
+	outboxService  *outbox.OutboxService
+	eventStore     *eventstore.EventStoreService
+	log            *zerolog.Logger
 }
 
 func NewCreateOrderCommand(
-	repo orders.Repository,
-	eventDispatcher *event_dispatcher.Dispatcher,
+	uowFactory unit_of_work.Factory,
+	outboxService *outbox.OutboxService,
+	eventStore *eventstore.EventStoreService,
 ) contracts.CreateOrderCommand {
 	return &createOrderCommand{
-		repo:            repo,
-		eventDispatcher: eventDispatcher,
-		log:             logger.Component("ecommerce.command.create_order"),
+		uowFactory:    uowFactory,
+		orderFactory:  factories.NewOrderFactory(),
+		outboxService: outboxService,
+		eventStore:    eventStore,
+		log:           logger.Component("ecommerce.command.create_order"),
 	}
 }
 
 func (c *createOrderCommand) Execute(ctx context.Context, req contracts.CreateOrderCommandRequest) (order.Order, error) {
-	createdAt := time.Now().UTC()
-	orderModel := order.Order{
-		ID:          uuid.NewString(),
-		UserID:      req.UserID,
-		Status:      order.StatusDraft,
-		Items:       []order.OrderItem{},
-		TotalAmount: 0,
-		CreatedAt:   createdAt,
-		UpdatedAt:   createdAt,
-	}
-
-	// Validate business rules
-	if err := orderModel.Validate(); err != nil {
+	// Use factory to create order
+	orderModel, err := c.orderFactory.CreateOrder(req.UserID)
+	if err != nil {
 		c.log.Error().
 			Err(err).
 			Str("user_id", req.UserID).
-			Msg("order validation failed")
+			Msg("failed to create order using factory")
 		return order.Order{}, err
 	}
 
-	// Domain logic: create order (this adds domain events internally)
-	orderModel.Create()
+	// Create unit of work
+	uow, err := c.uowFactory.New(ctx)
+	if err != nil {
+		c.log.Error().
+			Err(err).
+			Str("user_id", req.UserID).
+			Msg("failed to create unit of work")
+		return order.Order{}, err
+	}
+	defer uow.Rollback() // Ensure rollback if commit fails
 
 	// Save domain events BEFORE persisting
 	domainEvents := orderModel.Events()
 
-	// Persist to database
-	if err := c.repo.Create(ctx, &orderModel); err != nil {
+	// Persist to database using UoW repository
+	if err := uow.Orders().Create(ctx, orderModel); err != nil {
 		c.log.Error().
 			Err(err).
 			Str("user_id", req.UserID).
@@ -69,23 +72,50 @@ func (c *createOrderCommand) Execute(ctx context.Context, req contracts.CreateOr
 		return order.Order{}, err
 	}
 
-	// Dispatch domain events AFTER successful persistence
-	orderModel.ClearEvents()
-
+	// Save events to outbox and event store within the same transaction
 	for _, domainEvent := range domainEvents {
-		if err := c.eventDispatcher.Dispatch(ctx, domainEvent); err != nil {
+		// Save to outbox for reliable publishing
+		if err := c.outboxService.SaveEvent(ctx, domainEvent); err != nil {
 			c.log.Error().
 				Err(err).
 				Str("event_type", domainEvent.Type()).
 				Str("order_id", orderModel.ID).
-				Msg("failed to dispatch domain event")
+				Msg("failed to save event to outbox")
+			return order.Order{}, err
+		}
+
+		// Save to event store for event sourcing
+		metadata := map[string]interface{}{
+			"user_id": orderModel.UserID,
+		}
+		if err := c.eventStore.Append(ctx, domainEvent, metadata); err != nil {
+			c.log.Error().
+				Err(err).
+				Str("event_type", domainEvent.Type()).
+				Str("order_id", orderModel.ID).
+				Msg("failed to append event to event store")
+			return order.Order{}, err
 		}
 	}
+
+	// Commit transaction (includes outbox and event store writes)
+	if err := uow.Commit(); err != nil {
+		c.log.Error().
+			Err(err).
+			Str("order_id", orderModel.ID).
+			Msg("failed to commit transaction")
+		return order.Order{}, err
+	}
+
+	// Clear events after successful persistence
+	orderModel.ClearEvents()
 
 	c.log.Info().
 		Str("order_id", orderModel.ID).
 		Str("user_id", orderModel.UserID).
-		Msg("order created")
+		Int("event_count", len(domainEvents)).
+		Msg("order created with events saved to outbox and event store")
 
-	return orderModel, nil
+	return *orderModel, nil
 }
+

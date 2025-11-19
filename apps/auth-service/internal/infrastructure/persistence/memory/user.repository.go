@@ -1,18 +1,17 @@
 package memory
 
 import (
-	"errors"
 	"sync"
 
 	"golang-social-media/apps/auth-service/internal/domain/user"
-	"golang-social-media/pkg/errors"
+	pkgerrors "golang-social-media/pkg/errors"
 )
 
 var (
-	ErrEmailExists   = errors.NewConflictError(errors.CodeEmailAlreadyExists)
-	ErrInvalidAuth   = errors.NewValidationError(errors.CodeInvalidCredentials, nil)
-	ErrUserNotFound  = errors.NewNotFoundError(errors.CodeUserNotFound)
-	ErrTokenNotFound = errors.NewNotFoundError(errors.CodeTokenInvalid)
+	ErrEmailExists   = pkgerrors.NewConflictError(pkgerrors.CodeEmailAlreadyExists)
+	ErrInvalidAuth   = pkgerrors.NewValidationError(pkgerrors.CodeInvalidCredentials, nil)
+	ErrUserNotFound  = pkgerrors.NewNotFoundError(pkgerrors.CodeUserNotFound)
+	ErrTokenNotFound = pkgerrors.NewNotFoundError(pkgerrors.CodeTokenInvalid)
 )
 
 type UserRepository struct {
