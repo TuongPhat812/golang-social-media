@@ -14,8 +14,18 @@ import (
 var loadOnce sync.Once
 
 // LoadEnv loads environment variables from the provided files (defaults to .env).
+// Note: godotenv.Load() does NOT override existing environment variables,
+// so env vars from docker-compose or OS will take precedence.
 func LoadEnv(filenames ...string) {
 	loadOnce.Do(func() {
+		// Skip loading .env file if SKIP_ENV_FILE is set (useful for Docker)
+		if os.Getenv("SKIP_ENV_FILE") == "true" {
+			logger.Component("config").
+				Info().
+				Msg("skipping .env file load (SKIP_ENV_FILE=true)")
+			return
+		}
+
 		files := filenames
 		if len(files) == 0 {
 			files = discoverEnvPaths(".env")
@@ -32,6 +42,11 @@ func LoadEnv(filenames ...string) {
 						Err(err).
 						Str("file", file).
 						Msg("config unable to load env file")
+				} else {
+					logger.Component("config").
+						Info().
+						Str("file", file).
+						Msg("loaded env file")
 				}
 				return
 			}

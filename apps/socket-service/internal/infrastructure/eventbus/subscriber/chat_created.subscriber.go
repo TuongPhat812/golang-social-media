@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/segmentio/kafka-go"
@@ -34,9 +35,22 @@ func NewChatCreatedSubscriber(
 	}
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: brokers,
-		GroupID: groupID,
-		Topic:   events.TopicChatCreated,
+		Brokers:  brokers,
+		GroupID:  groupID,
+		Topic:    events.TopicChatCreated,
+		MinBytes: 10e3, // 10KB
+		MaxBytes: 10e6, // 10MB
+		// Connection timeouts
+		Dialer: &kafka.Dialer{
+			Timeout:       10 * time.Second,
+			DualStack:     true,
+			KeepAlive:     5 * time.Minute,
+		},
+		// Read timeouts
+		ReadBackoffMin: 100 * time.Millisecond,
+		ReadBackoffMax: 1 * time.Second,
+		// Commit interval - commit offsets every 1 second
+		CommitInterval: 1 * time.Second,
 	})
 
 	logger.Component("socket.subscriber.chat_created").
@@ -56,19 +70,37 @@ func NewChatCreatedSubscriber(
 func (s *ChatCreatedSubscriber) Consume(ctx context.Context) {
 	s.log.Info().
 		Str("topic", events.TopicChatCreated).
-		Msg("starting chat consumer")
+		Msg("starting chat consumer (this may take a few seconds to connect to Kafka)")
 
 	for {
-		msg, err := s.reader.ReadMessage(ctx)
+			msg, err := s.reader.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, kafka.ErrGroupClosed) {
 				s.log.Info().Msg("chat listener shutting down")
 				return
 			}
-			s.log.Error().
-				Err(err).
-				Msg("chat listener error")
-			continue
+			// Log first connection attempt separately
+			if err != nil {
+				s.log.Error().
+					Err(err).
+					Msg("chat listener error")
+				// Add small delay on error to avoid tight loop
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(100 * time.Millisecond):
+				}
+				continue
+			}
+			
+			// Log first successful message read
+			if msg.Offset == 0 || msg.Partition == 0 {
+				s.log.Info().
+					Str("topic", msg.Topic).
+					Int("partition", msg.Partition).
+					Int64("offset", msg.Offset).
+					Msg("chat consumer connected and reading messages")
+			}
 		}
 
 		var event events.ChatCreated

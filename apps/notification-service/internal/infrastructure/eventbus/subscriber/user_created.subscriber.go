@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"golang-social-media/apps/notification-service/internal/application/command"
@@ -27,10 +28,28 @@ func NewUserCreatedSubscriber(brokers []string, groupID string, handler *command
 		return nil, errors.New("groupID must be provided")
 	}
 
+	logger.Component("notification.subscriber.user_created").
+		Info().
+		Strs("brokers_before_reader", brokers).
+		Msg("creating kafka reader with brokers")
+	
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: brokers,
-		GroupID: groupID,
-		Topic:   events.TopicUserCreated,
+		Brokers:  brokers,
+		GroupID:  groupID,
+		Topic:    events.TopicUserCreated,
+		MinBytes: 10e3, // 10KB
+		MaxBytes: 10e6, // 10MB
+		// Connection timeouts
+		Dialer: &kafka.Dialer{
+			Timeout:       10 * time.Second,
+			DualStack:     true,
+			KeepAlive:     5 * time.Minute,
+		},
+		// Read timeouts
+		ReadBackoffMin: 100 * time.Millisecond,
+		ReadBackoffMax: 1 * time.Second,
+		// Commit interval - commit offsets every 1 second
+		CommitInterval: 1 * time.Second,
 	})
 
 	logger.Component("notification.subscriber.user_created").

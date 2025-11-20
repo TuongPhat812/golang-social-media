@@ -31,12 +31,12 @@ func main() {
 	}
 	defer cleanup(deps)
 
-	// Start event subscribers
-	startSubscribers(ctx, deps)
-
 	logger.Component("socket.bootstrap").
 		Info().
 		Msg("socket service ready")
+
+	// Start event subscribers in background (non-blocking)
+	startSubscribers(ctx, deps)
 
 	// Setup router
 	router := gin.Default()

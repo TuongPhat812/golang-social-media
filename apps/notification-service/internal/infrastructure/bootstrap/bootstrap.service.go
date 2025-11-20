@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"os"
 
 	command "golang-social-media/apps/notification-service/internal/application/command"
 	commandcontracts "golang-social-media/apps/notification-service/internal/application/command/contracts"
@@ -52,6 +53,13 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	// Setup ScyllaDB
 	scyllaHosts := config.GetEnvStringSlice("SCYLLA_HOSTS", []string{"localhost:9042"})
 	scyllaKeyspace := config.GetEnv("SCYLLA_KEYSPACE", "notification_service")
+	
+	// Debug: Log Kafka brokers being used
+	logger.Component("notification.bootstrap").
+		Info().
+		Strs("kafka_brokers", brokers).
+		Str("skip_env_file", os.Getenv("SKIP_ENV_FILE")).
+		Msg("notification service kafka brokers configuration")
 	session, err := scylladb.NewSession(scyllaHosts, scyllaKeyspace)
 	if err != nil {
 		logger.Component("notification.bootstrap").
@@ -75,7 +83,11 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	// Setup queries
 	queries := setupQueries(notificationRepo)
 
-	// Setup subscribers
+	// Setup subscribers - log brokers being used
+	logger.Component("notification.bootstrap").
+		Info().
+		Strs("brokers_for_subscribers", brokers).
+		Msg("setting up subscribers with brokers")
 	subscribers, err := setupSubscribers(ctx, brokers, commands)
 	if err != nil {
 		session.Close()
@@ -216,6 +228,11 @@ func setupSubscribers(
 	brokers []string,
 	commands commands,
 ) (subscribers, error) {
+	logger.Component("notification.bootstrap").
+		Info().
+		Strs("brokers_in_setupSubscribers", brokers).
+		Msg("setupSubscribers called with brokers")
+	
 	chatSubscriber, err := eventbussubscriber.NewChatCreatedSubscriber(
 		brokers,
 		config.GetEnv("NOTIFICATION_CHAT_GROUP_ID", "notification-service-chat"),

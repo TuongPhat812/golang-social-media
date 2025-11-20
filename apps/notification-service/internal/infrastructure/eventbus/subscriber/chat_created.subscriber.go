@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"golang-social-media/apps/notification-service/internal/application/command"
 	"golang-social-media/apps/notification-service/internal/infrastructure/eventbus/subscriber/contracts"
@@ -35,10 +36,28 @@ func NewChatCreatedSubscriber(brokers []string, groupID string, handler *command
 		Str("topic", events.TopicChatCreated).
 		Msg("chat subscriber configured")
 
+	logger.Component("notification.subscriber.chat_created").
+		Info().
+		Strs("brokers_before_reader", brokers).
+		Msg("creating kafka reader with brokers")
+	
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: brokers,
-		GroupID: groupID,
-		Topic:   events.TopicChatCreated,
+		Brokers:  brokers,
+		GroupID:  groupID,
+		Topic:    events.TopicChatCreated,
+		MinBytes: 10e3, // 10KB
+		MaxBytes: 10e6, // 10MB
+		// Connection timeouts
+		Dialer: &kafka.Dialer{
+			Timeout:       10 * time.Second,
+			DualStack:     true,
+			KeepAlive:     5 * time.Minute,
+		},
+		// Read timeouts
+		ReadBackoffMin: 100 * time.Millisecond,
+		ReadBackoffMax: 1 * time.Second,
+		// Commit interval - commit offsets every 1 second
+		CommitInterval: 1 * time.Second,
 	})
 
 	return &ChatCreatedSubscriber{handler: handler, reader: reader}, nil

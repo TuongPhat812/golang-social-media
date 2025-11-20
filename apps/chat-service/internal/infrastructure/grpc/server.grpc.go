@@ -19,9 +19,15 @@ func Start(addr string, register func(*grpc.Server)) error {
 	devMode := os.Getenv("ENV") == "development"
 	transformer := errors.NewTransformer(devMode)
 
-	// Create server with error interceptor
+	// Create server with error interceptor and performance optimizations
 	server := grpc.NewServer(
 		grpc.UnaryInterceptor(errors.GRPCErrorInterceptor(transformer)),
+		grpc.MaxConcurrentStreams(10000),        // Allow high concurrency
+		grpc.InitialWindowSize(65535),          // Increase initial window size
+		grpc.InitialConnWindowSize(1048576),    // 1MB initial connection window
+		grpc.MaxRecvMsgSize(4*1024*1024),       // 4MB max receive message size
+		grpc.MaxSendMsgSize(4*1024*1024),       // 4MB max send message size
+		grpc.NumStreamWorkers(10),              // Use multiple workers for streams
 	)
 	if register != nil {
 		register(server)

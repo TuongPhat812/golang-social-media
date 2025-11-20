@@ -19,14 +19,26 @@ type Client struct {
 func NewClient(ctx context.Context) (*Client, error) {
 	addr := config.GetEnv("CHAT_SERVICE_ADDR", "localhost:9000")
 
-	dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// Increase timeout to 30 seconds to allow chat-service to be ready
+	dialCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	
+	logger.Component("gateway.grpc").
+		Info().
+		Str("addr", addr).
+		Msg("connecting to chat service")
 
 	conn, err := grpc.DialContext(
 		dialCtx,
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
+		grpc.WithInitialWindowSize(65535),       // Increase initial window size
+		grpc.WithInitialConnWindowSize(1048576), // 1MB initial connection window
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(4*1024*1024), // 4MB max receive message size
+			grpc.MaxCallSendMsgSize(4*1024*1024), // 4MB max send message size
+		),
 	)
 	if err != nil {
 		return nil, err

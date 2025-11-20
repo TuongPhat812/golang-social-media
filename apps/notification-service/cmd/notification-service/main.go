@@ -34,12 +34,12 @@ func main() {
 	}
 	defer cleanup(deps)
 
-	// Start event subscribers
-	startSubscribers(ctx, deps)
-
 	logger.Component("notification.bootstrap").
 		Info().
 		Msg("notification service ready")
+
+	// Start event subscribers in background (non-blocking)
+	startSubscribers(ctx, deps)
 
 	// Start gRPC server
 	port := config.GetEnvInt("NOTIFICATION_SERVICE_PORT", 9100)

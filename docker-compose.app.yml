@@ -5,21 +5,52 @@ services:
     image: golang:1.22
     container_name: gsm-gateway
     working_dir: /app/apps/gateway
-    command: go run ./cmd/gateway
+    command: sh -c "go build -ldflags='-s -w' -o /tmp/gateway ./cmd/gateway && /tmp/gateway"
+    env_file:
+      - .env.local.docker
     environment:
       - GOTOOLCHAIN=auto
+      - SKIP_ENV_FILE=true
       - CHAT_SERVICE_ADDR=chat-service:9000
       - GIN_DISABLE_ACCESS_LOG=false
       - LOG_OUTPUT_DIR=/var/log/app
+      - CGO_ENABLED=0
+      - GOOS=linux
     volumes:
       - ./:/app
       - ./logs:/var/log/app
     ports:
       - "8080:8080"
     depends_on:
+      - auth-service
       - chat-service
       - notification-service
       - socket-service
+    networks:
+      - gsm-network
+    shm_size: 256mb
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  auth-service:
+    image: golang:1.22
+    container_name: gsm-auth-service
+    working_dir: /app/apps/auth-service
+    command: go run ./cmd/auth-service
+    env_file:
+      - .env.local.docker
+    environment:
+      - GOTOOLCHAIN=auto
+      - SKIP_ENV_FILE=true
+      - KAFKA_BROKERS=kafka:9092
+      - LOG_OUTPUT_DIR=/var/log/app
+    volumes:
+      - ./:/app
+      - ./logs:/var/log/app
+    ports:
+      - "9101:9101"
     networks:
       - gsm-network
 
@@ -27,12 +58,17 @@ services:
     image: golang:1.22
     container_name: gsm-chat-service
     working_dir: /app/apps/chat-service
-    command: go run ./cmd/chat-service
+    command: sh -c "go build -ldflags='-s -w' -o /tmp/chat-service ./cmd/chat-service && /tmp/chat-service"
+    env_file:
+      - .env.local.docker
     environment:
       - GOTOOLCHAIN=auto
+      - SKIP_ENV_FILE=true
       - KAFKA_BROKERS=kafka:9092
       - CHAT_DATABASE_DSN=postgres://chat_user:chat_password@gsm-postgres:5432/chat_service?sslmode=disable
       - LOG_OUTPUT_DIR=/var/log/app
+      - CGO_ENABLED=0
+      - GOOS=linux
     volumes:
       - ./:/app
       - ./logs:/var/log/app
@@ -40,14 +76,22 @@ services:
       - "9000:9000"
     networks:
       - gsm-network
+    shm_size: 256mb
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
 
   notification-service:
     image: golang:1.22
     container_name: gsm-notification-service
     working_dir: /app/apps/notification-service
     command: go run ./cmd/notification-service
+    env_file:
+      - .env.local.docker
     environment:
       - GOTOOLCHAIN=auto
+      - SKIP_ENV_FILE=true
       - KAFKA_BROKERS=kafka:9092
       - NOTIFICATION_CHAT_GROUP_ID=notification-service-chat
       - NOTIFICATION_USER_GROUP_ID=notification-service-user
@@ -68,8 +112,11 @@ services:
     container_name: gsm-socket-service
     working_dir: /app/apps/socket-service
     command: go run ./cmd/socket-service
+    env_file:
+      - .env.local.docker
     environment:
       - GOTOOLCHAIN=auto
+      - SKIP_ENV_FILE=true
       - KAFKA_BROKERS=kafka:9092
       - SOCKET_CHAT_GROUP_ID=socket-service-chat
       - SOCKET_NOTIFICATION_GROUP_ID=socket-service-notification
