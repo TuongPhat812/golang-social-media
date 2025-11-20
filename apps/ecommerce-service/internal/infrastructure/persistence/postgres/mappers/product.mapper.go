@@ -23,16 +23,18 @@ func (ProductModel) TableName() string {
 	return "products"
 }
 
-// ProductMapper maps between domain Product and persistence models
-type ProductMapper struct{}
+// ProductMapperImpl implements ProductMapper interface
+type ProductMapperImpl struct{}
 
-// NewProductMapper creates a new ProductMapper
-func NewProductMapper() *ProductMapper {
-	return &ProductMapper{}
+var _ ProductMapper = (*ProductMapperImpl)(nil)
+
+// NewProductMapper creates a new ProductMapperImpl
+func NewProductMapper() ProductMapper {
+	return &ProductMapperImpl{}
 }
 
 // ToModel converts a domain Product to ProductModel
-func (m *ProductMapper) ToModel(p product.Product) ProductModel {
+func (m *ProductMapperImpl) ToModel(p product.Product) ProductModel {
 	return ProductModel{
 		ID:          p.ID,
 		Name:        p.Name,
@@ -46,7 +48,7 @@ func (m *ProductMapper) ToModel(p product.Product) ProductModel {
 }
 
 // ToDomain converts a ProductModel to domain Product
-func (m *ProductMapper) ToDomain(model ProductModel) product.Product {
+func (m *ProductMapperImpl) ToDomain(model ProductModel) product.Product {
 	return product.Product{
 		ID:          model.ID,
 		Name:        model.Name,
@@ -60,7 +62,7 @@ func (m *ProductMapper) ToDomain(model ProductModel) product.Product {
 }
 
 // ToDomainList converts a slice of ProductModel to domain Products
-func (m *ProductMapper) ToDomainList(models []ProductModel) []product.Product {
+func (m *ProductMapperImpl) ToDomainList(models []ProductModel) []product.Product {
 	products := make([]product.Product, len(models))
 	for i, model := range models {
 		products[i] = m.ToDomain(model)
@@ -69,7 +71,7 @@ func (m *ProductMapper) ToDomainList(models []ProductModel) []product.Product {
 }
 
 // ToModelList converts a slice of domain Products to ProductModels
-func (m *ProductMapper) ToModelList(products []product.Product) []ProductModel {
+func (m *ProductMapperImpl) ToModelList(products []product.Product) []ProductModel {
 	models := make([]ProductModel, len(products))
 	for i, p := range products {
 		models[i] = m.ToModel(p)

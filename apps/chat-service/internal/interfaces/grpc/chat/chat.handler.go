@@ -13,14 +13,14 @@ import (
 
 type Handler struct {
 	createMessageCmd commandcontracts.CreateMessageCommand
-	dtoMapper        *mappers.MessageDTOMapper
+	dtoMapper        mappers.MessageDTOMapper
 	chatv1.UnimplementedChatServiceServer
 }
 
-func NewHandler(deps *bootstrap.Dependencies) *Handler {
+func NewHandler(deps *bootstrap.Dependencies, dtoMapper mappers.MessageDTOMapper) *Handler {
 	return &Handler{
 		createMessageCmd: deps.CreateMessageCmd,
-		dtoMapper:        mappers.NewMessageDTOMapper(),
+		dtoMapper:        dtoMapper,
 	}
 }
 

@@ -36,16 +36,18 @@ func (OrderItemModel) TableName() string {
 	return "order_items"
 }
 
-// OrderMapper maps between domain Order and persistence models
-type OrderMapper struct{}
+// OrderMapperImpl implements OrderMapper interface
+type OrderMapperImpl struct{}
 
-// NewOrderMapper creates a new OrderMapper
-func NewOrderMapper() *OrderMapper {
-	return &OrderMapper{}
+var _ OrderMapper = (*OrderMapperImpl)(nil)
+
+// NewOrderMapper creates a new OrderMapperImpl
+func NewOrderMapper() OrderMapper {
+	return &OrderMapperImpl{}
 }
 
 // ToModel converts a domain Order to OrderModel and OrderItemModels
-func (m *OrderMapper) ToModel(o order.Order) (OrderModel, []OrderItemModel) {
+func (m *OrderMapperImpl) ToModel(o order.Order) (OrderModel, []OrderItemModel) {
 	orderModel := OrderModel{
 		ID:          o.ID,
 		UserID:      o.UserID,
@@ -72,7 +74,7 @@ func (m *OrderMapper) ToModel(o order.Order) (OrderModel, []OrderItemModel) {
 }
 
 // ToDomain converts OrderModel and OrderItemModels to domain Order
-func (m *OrderMapper) ToDomain(orderModel OrderModel, itemModels []OrderItemModel) order.Order {
+func (m *OrderMapperImpl) ToDomain(orderModel OrderModel, itemModels []OrderItemModel) order.Order {
 	orderItems := make([]order.OrderItem, len(itemModels))
 	for i, item := range itemModels {
 		orderItems[i] = order.OrderItem{
@@ -95,7 +97,7 @@ func (m *OrderMapper) ToDomain(orderModel OrderModel, itemModels []OrderItemMode
 }
 
 // ToDomainList converts a slice of orders to domain Orders
-func (m *OrderMapper) ToDomainList(orders []OrderModel, itemsMap map[string][]OrderItemModel) []order.Order {
+func (m *OrderMapperImpl) ToDomainList(orders []OrderModel, itemsMap map[string][]OrderItemModel) []order.Order {
 	result := make([]order.Order, len(orders))
 	for i, orderModel := range orders {
 		items := itemsMap[orderModel.ID]

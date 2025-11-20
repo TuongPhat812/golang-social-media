@@ -15,23 +15,23 @@ var _ orders.Repository = (*OrderRepository)(nil)
 
 type OrderRepository struct {
 	db     *gorm.DB
-	mapper *mappers.OrderMapper
+	mapper mappers.OrderMapper
 	cache  *cache.OrderCache
 }
 
-func NewOrderRepository(db *gorm.DB, orderCache *cache.OrderCache) *OrderRepository {
+func NewOrderRepository(db *gorm.DB, orderMapper mappers.OrderMapper, orderCache *cache.OrderCache) *OrderRepository {
 	return &OrderRepository{
 		db:     db,
-		mapper: mappers.NewOrderMapper(),
+		mapper: orderMapper,
 		cache:  orderCache,
 	}
 }
 
 // NewOrderRepositoryWithTx creates an OrderRepository with a specific transaction
-func NewOrderRepositoryWithTx(tx *gorm.DB, orderCache *cache.OrderCache) *OrderRepository {
+func NewOrderRepositoryWithTx(tx *gorm.DB, orderMapper mappers.OrderMapper, orderCache *cache.OrderCache) *OrderRepository {
 	return &OrderRepository{
 		db:     tx,
-		mapper: mappers.NewOrderMapper(),
+		mapper: orderMapper,
 		cache:  orderCache,
 	}
 }

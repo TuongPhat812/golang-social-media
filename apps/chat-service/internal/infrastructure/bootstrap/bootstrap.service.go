@@ -9,6 +9,7 @@ import (
 	event_handler "golang-social-media/apps/chat-service/internal/application/event_handler"
 	eventbuspublisher "golang-social-media/apps/chat-service/internal/infrastructure/eventbus/publisher"
 	"golang-social-media/apps/chat-service/internal/infrastructure/persistence"
+	domainfactories "golang-social-media/apps/chat-service/internal/domain/factories"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
 	"gorm.io/driver/postgres"
@@ -32,8 +33,11 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 		return nil, err
 	}
 
+	// Setup mappers
+	messageMapper := persistence.NewMessageMapper()
+
 	// Setup repositories
-	messageRepo := persistence.NewMessageRepository(db)
+	messageRepo := persistence.NewMessageRepository(db, messageMapper)
 
 	// Setup event bus publisher
 	publisher, err := setupPublisher()
@@ -44,8 +48,11 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	// Setup event dispatcher
 	eventDispatcher := setupEventDispatcher(publisher)
 
+	// Setup factories
+	messageFactory := domainfactories.NewMessageFactory()
+
 	// Setup commands
-	createMessageCmd := setupCommands(messageRepo, eventDispatcher)
+	createMessageCmd := setupCommands(messageRepo, messageFactory, eventDispatcher)
 
 	logger.Component("chat.bootstrap").
 		Info().
@@ -121,9 +128,10 @@ func setupEventDispatcher(publisher *eventbuspublisher.KafkaPublisher) *event_di
 
 func setupCommands(
 	messageRepo *persistence.MessageRepository,
+	messageFactory domainfactories.MessageFactory,
 	eventDispatcher *event_dispatcher.Dispatcher,
 ) commandcontracts.CreateMessageCommand {
-	createMessageCmd := appcommand.NewCreateMessageCommand(messageRepo, eventDispatcher)
+	createMessageCmd := appcommand.NewCreateMessageCommand(messageRepo, messageFactory, eventDispatcher)
 
 	logger.Component("chat.bootstrap").
 		Info().

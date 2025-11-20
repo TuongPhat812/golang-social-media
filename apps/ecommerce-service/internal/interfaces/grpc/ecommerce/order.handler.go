@@ -14,14 +14,14 @@ import (
 type OrderHandler struct {
 	ecommercev1.UnimplementedOrderServiceServer
 	deps      *bootstrap.Dependencies
-	dtoMapper *mappers.OrderDTOMapper
+	dtoMapper mappers.OrderDTOMapper
 	log       *zerolog.Logger
 }
 
-func NewOrderHandler(deps *bootstrap.Dependencies) *OrderHandler {
+func NewOrderHandler(deps *bootstrap.Dependencies, dtoMapper mappers.OrderDTOMapper) *OrderHandler {
 	return &OrderHandler{
 		deps:      deps,
-		dtoMapper: mappers.NewOrderDTOMapper(),
+		dtoMapper: dtoMapper,
 		log:       logger.Component("ecommerce.grpc.order"),
 	}
 }

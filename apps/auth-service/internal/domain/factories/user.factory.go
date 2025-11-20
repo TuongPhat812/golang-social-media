@@ -5,30 +5,32 @@ import (
 	"golang-social-media/apps/auth-service/internal/pkg/random"
 )
 
-// UserFactory creates User entities with proper initialization
-type UserFactory struct {
+// UserFactoryImpl implements UserFactory interface
+type UserFactoryImpl struct {
 	idGenerator func() string
 }
 
-// NewUserFactory creates a new UserFactory
-func NewUserFactory() *UserFactory {
-	return &UserFactory{
+var _ UserFactory = (*UserFactoryImpl)(nil)
+
+// NewUserFactory creates a new UserFactoryImpl
+func NewUserFactory() UserFactory {
+	return &UserFactoryImpl{
 		idGenerator: func() string {
 			return "user-" + random.String(8)
 		},
 	}
 }
 
-// NewUserFactoryWithIDGenerator creates a UserFactory with custom ID generator
-func NewUserFactoryWithIDGenerator(idGenerator func() string) *UserFactory {
-	return &UserFactory{
+// NewUserFactoryWithIDGenerator creates a UserFactoryImpl with custom ID generator
+func NewUserFactoryWithIDGenerator(idGenerator func() string) UserFactory {
+	return &UserFactoryImpl{
 		idGenerator: idGenerator,
 	}
 }
 
 // CreateUser creates a new User with proper initialization
 // This factory encapsulates the complex creation logic
-func (f *UserFactory) CreateUser(email, password, name string) (*user.User, error) {
+func (f *UserFactoryImpl) CreateUser(email, password, name string) (*user.User, error) {
 	if email == "" {
 		return nil, &UserFactoryError{Message: "email cannot be empty"}
 	}

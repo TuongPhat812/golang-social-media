@@ -35,8 +35,8 @@ docker-compose.*.local.yml
 
 # Vendor & generated
 vendor/
-proto/
-*.pb.go
+# proto/ - commented out to allow proto files in git
+# *.pb.go - commented out to allow generated proto files in git
 
 # Node/Web deps (if any future frontend)
 node_modules/

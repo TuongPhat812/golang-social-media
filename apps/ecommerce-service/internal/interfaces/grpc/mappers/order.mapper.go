@@ -6,26 +6,28 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// OrderDTOMapper maps between domain Order and gRPC DTOs
-type OrderDTOMapper struct{}
+// OrderDTOMapperImpl implements OrderDTOMapper interface
+type OrderDTOMapperImpl struct{}
 
-// NewOrderDTOMapper creates a new OrderDTOMapper
-func NewOrderDTOMapper() *OrderDTOMapper {
-	return &OrderDTOMapper{}
+var _ OrderDTOMapper = (*OrderDTOMapperImpl)(nil)
+
+// NewOrderDTOMapper creates a new OrderDTOMapperImpl
+func NewOrderDTOMapper() OrderDTOMapper {
+	return &OrderDTOMapperImpl{}
 }
 
 // FromCreateOrderRequest extracts user ID from CreateOrderRequest
-func (m *OrderDTOMapper) FromCreateOrderRequest(req *ecommercev1.CreateOrderRequest) string {
+func (m *OrderDTOMapperImpl) FromCreateOrderRequest(req *ecommercev1.CreateOrderRequest) string {
 	return req.GetUserId()
 }
 
 // FromAddOrderItemRequest converts gRPC AddOrderItemRequest to command request data
-func (m *OrderDTOMapper) FromAddOrderItemRequest(req *ecommercev1.AddOrderItemRequest) (orderID, productID string, quantity int) {
+func (m *OrderDTOMapperImpl) FromAddOrderItemRequest(req *ecommercev1.AddOrderItemRequest) (orderID, productID string, quantity int) {
 	return req.GetOrderId(), req.GetProductId(), int(req.GetQuantity())
 }
 
 // ToOrder converts domain Order to gRPC Order
-func (m *OrderDTOMapper) ToOrder(o order.Order) *ecommercev1.Order {
+func (m *OrderDTOMapperImpl) ToOrder(o order.Order) *ecommercev1.Order {
 	pbItems := make([]*ecommercev1.OrderItem, len(o.Items))
 	for i, item := range o.Items {
 		pbItems[i] = &ecommercev1.OrderItem{
@@ -48,7 +50,7 @@ func (m *OrderDTOMapper) ToOrder(o order.Order) *ecommercev1.Order {
 }
 
 // ToOrderList converts a slice of domain Orders to gRPC Orders
-func (m *OrderDTOMapper) ToOrderList(orders []order.Order) []*ecommercev1.Order {
+func (m *OrderDTOMapperImpl) ToOrderList(orders []order.Order) []*ecommercev1.Order {
 	result := make([]*ecommercev1.Order, len(orders))
 	for i, o := range orders {
 		result[i] = m.ToOrder(o)
@@ -57,42 +59,42 @@ func (m *OrderDTOMapper) ToOrderList(orders []order.Order) []*ecommercev1.Order 
 }
 
 // ToCreateOrderResponse converts domain Order to CreateOrderResponse
-func (m *OrderDTOMapper) ToCreateOrderResponse(o order.Order) *ecommercev1.CreateOrderResponse {
+func (m *OrderDTOMapperImpl) ToCreateOrderResponse(o order.Order) *ecommercev1.CreateOrderResponse {
 	return &ecommercev1.CreateOrderResponse{
 		Order: m.ToOrder(o),
 	}
 }
 
 // ToGetOrderResponse converts domain Order to GetOrderResponse
-func (m *OrderDTOMapper) ToGetOrderResponse(o order.Order) *ecommercev1.GetOrderResponse {
+func (m *OrderDTOMapperImpl) ToGetOrderResponse(o order.Order) *ecommercev1.GetOrderResponse {
 	return &ecommercev1.GetOrderResponse{
 		Order: m.ToOrder(o),
 	}
 }
 
 // ToListUserOrdersResponse converts domain Orders to ListUserOrdersResponse
-func (m *OrderDTOMapper) ToListUserOrdersResponse(orders []order.Order) *ecommercev1.ListUserOrdersResponse {
+func (m *OrderDTOMapperImpl) ToListUserOrdersResponse(orders []order.Order) *ecommercev1.ListUserOrdersResponse {
 	return &ecommercev1.ListUserOrdersResponse{
 		Orders: m.ToOrderList(orders),
 	}
 }
 
 // ToAddOrderItemResponse converts domain Order to AddOrderItemResponse
-func (m *OrderDTOMapper) ToAddOrderItemResponse(o order.Order) *ecommercev1.AddOrderItemResponse {
+func (m *OrderDTOMapperImpl) ToAddOrderItemResponse(o order.Order) *ecommercev1.AddOrderItemResponse {
 	return &ecommercev1.AddOrderItemResponse{
 		Order: m.ToOrder(o),
 	}
 }
 
 // ToConfirmOrderResponse converts domain Order to ConfirmOrderResponse
-func (m *OrderDTOMapper) ToConfirmOrderResponse(o order.Order) *ecommercev1.ConfirmOrderResponse {
+func (m *OrderDTOMapperImpl) ToConfirmOrderResponse(o order.Order) *ecommercev1.ConfirmOrderResponse {
 	return &ecommercev1.ConfirmOrderResponse{
 		Order: m.ToOrder(o),
 	}
 }
 
 // ToCancelOrderResponse converts domain Order to CancelOrderResponse
-func (m *OrderDTOMapper) ToCancelOrderResponse(o order.Order) *ecommercev1.CancelOrderResponse {
+func (m *OrderDTOMapperImpl) ToCancelOrderResponse(o order.Order) *ecommercev1.CancelOrderResponse {
 	return &ecommercev1.CancelOrderResponse{
 		Order: m.ToOrder(o),
 	}

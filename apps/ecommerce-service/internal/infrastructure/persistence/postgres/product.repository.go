@@ -14,23 +14,23 @@ var _ products.Repository = (*ProductRepository)(nil)
 
 type ProductRepository struct {
 	db     *gorm.DB
-	mapper *mappers.ProductMapper
+	mapper mappers.ProductMapper
 	cache  *cache.ProductCache
 }
 
-func NewProductRepository(db *gorm.DB, productCache *cache.ProductCache) *ProductRepository {
+func NewProductRepository(db *gorm.DB, productMapper mappers.ProductMapper, productCache *cache.ProductCache) *ProductRepository {
 	return &ProductRepository{
 		db:     db,
-		mapper: mappers.NewProductMapper(),
+		mapper: productMapper,
 		cache:  productCache,
 	}
 }
 
 // NewProductRepositoryWithTx creates a ProductRepository with a specific transaction
-func NewProductRepositoryWithTx(tx *gorm.DB, productCache *cache.ProductCache) *ProductRepository {
+func NewProductRepositoryWithTx(tx *gorm.DB, productMapper mappers.ProductMapper, productCache *cache.ProductCache) *ProductRepository {
 	return &ProductRepository{
 		db:     tx,
-		mapper: mappers.NewProductMapper(),
+		mapper: productMapper,
 		cache:  productCache,
 	}
 }

@@ -11,6 +11,7 @@ import (
 	event_handler "golang-social-media/apps/auth-service/internal/application/event_handler"
 	eventbuspublisher "golang-social-media/apps/auth-service/internal/infrastructure/eventbus/publisher"
 	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/memory"
+	domainfactories "golang-social-media/apps/auth-service/internal/domain/factories"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
 )
@@ -39,8 +40,11 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	// Setup event dispatcher
 	eventDispatcher := setupEventDispatcher(publisher)
 
+	// Setup factories
+	userFactory := domainfactories.NewUserFactory()
+
 	// Setup commands
-	registerUserCmd := appcommand.NewRegisterUserCommand(userRepo, eventDispatcher, nil)
+	registerUserCmd := appcommand.NewRegisterUserCommand(userRepo, userFactory, eventDispatcher)
 	tokenStore := appcommand.NewTokenStore()
 	loginUserCmd := appcommand.NewLoginUserHandler(userRepo, tokenStore)
 

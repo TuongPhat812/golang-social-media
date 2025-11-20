@@ -7,17 +7,19 @@ import (
 	"github.com/google/uuid"
 )
 
-// OrderFactory creates Order aggregates with proper initialization
-type OrderFactory struct{}
+// OrderFactoryImpl implements OrderFactory interface
+type OrderFactoryImpl struct{}
 
-// NewOrderFactory creates a new OrderFactory
-func NewOrderFactory() *OrderFactory {
-	return &OrderFactory{}
+var _ OrderFactory = (*OrderFactoryImpl)(nil)
+
+// NewOrderFactory creates a new OrderFactoryImpl
+func NewOrderFactory() OrderFactory {
+	return &OrderFactoryImpl{}
 }
 
 // CreateOrder creates a new Order with proper initialization
 // This factory encapsulates the complex creation logic
-func (f *OrderFactory) CreateOrder(userID string) (*order.Order, error) {
+func (f *OrderFactoryImpl) CreateOrder(userID string) (*order.Order, error) {
 	if userID == "" {
 		return nil, &OrderFactoryError{Message: "user ID cannot be empty"}
 	}

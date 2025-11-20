@@ -40,12 +40,12 @@ func (q *QueryOptimizer) AnalyzeQuery(ctx context.Context, query *gorm.DB) (stri
 // GetTableStats returns statistics about a table
 func (q *QueryOptimizer) GetTableStats(ctx context.Context, tableName string) (map[string]interface{}, error) {
 	var stats struct {
-		TableName      string
-		RowCount       int64
-		TableSize      string
-		IndexesSize    string
-		TotalSize      string
-		IndexCount     int
+		TableName   string
+		RowCount    int64
+		TableSize   string
+		IndexesSize string
+		TotalSize   string
+		IndexCount  int
 	}
 
 	query := `
@@ -65,12 +65,12 @@ func (q *QueryOptimizer) GetTableStats(ctx context.Context, tableName string) (m
 	}
 
 	return map[string]interface{}{
-		"table_name":    stats.TableName,
-		"row_count":     stats.RowCount,
-		"table_size":    stats.TableSize,
-		"indexes_size":  stats.IndexesSize,
-		"total_size":    stats.TotalSize,
-		"index_count":   stats.IndexCount,
+		"table_name":   stats.TableName,
+		"row_count":    stats.RowCount,
+		"table_size":   stats.TableSize,
+		"indexes_size": stats.IndexesSize,
+		"total_size":   stats.TotalSize,
+		"index_count":  stats.IndexCount,
 	}, nil
 }
 
@@ -117,4 +117,3 @@ func (q *QueryOptimizer) VacuumAnalyze(ctx context.Context, tableName string) er
 	sql := fmt.Sprintf("VACUUM ANALYZE %s", tableName)
 	return q.db.WithContext(ctx).Exec(sql).Error
 }
-

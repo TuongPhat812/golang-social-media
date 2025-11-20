@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package ecommerce.v1;
+
+option go_package = "golang-social-media/pkg/gen/ecommerce/v1";
+
+import "google/protobuf/timestamp.proto";
+
+// Product Service
+service ProductService {
+  rpc CreateProduct(CreateProductRequest) returns (CreateProductResponse);
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc UpdateProductStock(UpdateProductStockRequest) returns (UpdateProductStockResponse);
+}
+
+// Order Service
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+  rpc ListUserOrders(ListUserOrdersRequest) returns (ListUserOrdersResponse);
+  rpc AddOrderItem(AddOrderItemRequest) returns (AddOrderItemResponse);
+  rpc ConfirmOrder(ConfirmOrderRequest) returns (ConfirmOrderResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+}
+
+// Product Messages
+message Product {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  int32 stock = 5;
+  string status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateProductRequest {
+  string name = 1;
+  string description = 2;
+  double price = 3;
+  int32 stock = 4;
+}
+
+message CreateProductResponse {
+  Product product = 1;
+}
+
+message GetProductRequest {
+  string product_id = 1;
+}
+
+message GetProductResponse {
+  Product product = 1;
+}
+
+message ListProductsRequest {
+  string status = 1; // Optional filter
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListProductsResponse {
+  repeated Product products = 1;
+}
+
+message UpdateProductStockRequest {
+  string product_id = 1;
+  int32 new_stock = 2;
+}
+
+message UpdateProductStockResponse {
+  Product product = 1;
+}
+
+// Order Messages
+message OrderItem {
+  string product_id = 1;
+  int32 quantity = 2;
+  double unit_price = 3;
+  double sub_total = 4;
+}
+
+message Order {
+  string id = 1;
+  string user_id = 2;
+  string status = 3;
+  repeated OrderItem items = 4;
+  double total_amount = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateOrderRequest {
+  string user_id = 1;
+}
+
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message ListUserOrdersRequest {
+  string user_id = 1;
+  int32 limit = 2;
+}
+
+message ListUserOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message AddOrderItemRequest {
+  string order_id = 1;
+  string product_id = 2;
+  int32 quantity = 3;
+}
+
+message AddOrderItemResponse {
+  Order order = 1;
+}
+
+message ConfirmOrderRequest {
+  string order_id = 1;
+}
+
+message ConfirmOrderResponse {
+  Order order = 1;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+}
+
+message CancelOrderResponse {
+  Order order = 1;
+}
+

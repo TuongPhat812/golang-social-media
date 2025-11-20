@@ -4,16 +4,18 @@ import (
 	domain "golang-social-media/apps/chat-service/internal/domain/message"
 )
 
-// MessageMapper maps between domain Message and persistence models
-type MessageMapper struct{}
+// MessageMapperImpl implements MessageMapper interface
+type MessageMapperImpl struct{}
 
-// NewMessageMapper creates a new MessageMapper
-func NewMessageMapper() *MessageMapper {
-	return &MessageMapper{}
+var _ MessageMapper = (*MessageMapperImpl)(nil)
+
+// NewMessageMapper creates a new MessageMapperImpl
+func NewMessageMapper() MessageMapper {
+	return &MessageMapperImpl{}
 }
 
 // ToModel converts a domain Message to MessageModel
-func (m *MessageMapper) ToModel(msg domain.Message) MessageModel {
+func (m *MessageMapperImpl) ToModel(msg domain.Message) MessageModel {
 	return MessageModel{
 		ID:         msg.ID,
 		SenderID:   msg.SenderID,
@@ -24,7 +26,7 @@ func (m *MessageMapper) ToModel(msg domain.Message) MessageModel {
 }
 
 // ToDomain converts a MessageModel to domain Message
-func (m *MessageMapper) ToDomain(model MessageModel) domain.Message {
+func (m *MessageMapperImpl) ToDomain(model MessageModel) domain.Message {
 	return domain.Message{
 		ID:         model.ID,
 		SenderID:   model.SenderID,
@@ -35,7 +37,7 @@ func (m *MessageMapper) ToDomain(model MessageModel) domain.Message {
 }
 
 // ToDomainList converts a slice of MessageModel to domain Messages
-func (m *MessageMapper) ToDomainList(models []MessageModel) []domain.Message {
+func (m *MessageMapperImpl) ToDomainList(models []MessageModel) []domain.Message {
 	messages := make([]domain.Message, len(models))
 	for i, model := range models {
 		messages[i] = m.ToDomain(model)
@@ -44,7 +46,7 @@ func (m *MessageMapper) ToDomainList(models []MessageModel) []domain.Message {
 }
 
 // ToModelList converts a slice of domain Messages to MessageModels
-func (m *MessageMapper) ToModelList(messages []domain.Message) []MessageModel {
+func (m *MessageMapperImpl) ToModelList(messages []domain.Message) []MessageModel {
 	models := make([]MessageModel, len(messages))
 	for i, msg := range messages {
 		models[i] = m.ToModel(msg)

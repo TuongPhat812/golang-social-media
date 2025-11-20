@@ -13,13 +13,13 @@ var _ messages.Repository = (*MessageRepository)(nil)
 
 type MessageRepository struct {
 	db     *gorm.DB
-	mapper *MessageMapper
+	mapper MessageMapper
 }
 
-func NewMessageRepository(db *gorm.DB) *MessageRepository {
+func NewMessageRepository(db *gorm.DB, mapper MessageMapper) *MessageRepository {
 	return &MessageRepository{
 		db:     db,
-		mapper: NewMessageMapper(),
+		mapper: mapper,
 	}
 }
 

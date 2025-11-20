@@ -11,6 +11,7 @@ import (
 	grpcserver "golang-social-media/apps/chat-service/internal/infrastructure/grpc"
 	interfaces "golang-social-media/apps/chat-service/internal/interfaces/grpc"
 	chatgrpc "golang-social-media/apps/chat-service/internal/interfaces/grpc/chat"
+	grpcmappers "golang-social-media/apps/chat-service/internal/interfaces/grpc/mappers"
 	"golang-social-media/pkg/config"
 	chatv1 "golang-social-media/pkg/gen/chat/v1"
 	"golang-social-media/pkg/logger"
@@ -44,7 +45,9 @@ func main() {
 	addr := fmt.Sprintf(":%d", port)
 
 	if err := grpcserver.Start(addr, func(server *grpc.Server) {
-		handler := chatgrpc.NewHandler(deps)
+		// Setup DTO mapper
+		messageDTOMapper := grpcmappers.NewMessageDTOMapper()
+		handler := chatgrpc.NewHandler(deps, messageDTOMapper)
 		chatv1.RegisterChatServiceServer(server, handler)
 		interfaces.RegisterServices(server, deps)
 	}); err != nil {

@@ -19,26 +19,19 @@ var _ contracts.RegisterUserCommand = (*registerUserCommand)(nil)
 
 type registerUserCommand struct {
 	repo            *memory.UserRepository
-	userFactory     *factories.UserFactory
+	userFactory     factories.UserFactory
 	eventDispatcher *event_dispatcher.Dispatcher
 	log             *zerolog.Logger
 }
 
 func NewRegisterUserCommand(
 	repo *memory.UserRepository,
+	userFactory factories.UserFactory,
 	eventDispatcher *event_dispatcher.Dispatcher,
-	idFn func() string,
 ) contracts.RegisterUserCommand {
-	var factory *factories.UserFactory
-	if idFn != nil {
-		factory = factories.NewUserFactoryWithIDGenerator(idFn)
-	} else {
-		factory = factories.NewUserFactory()
-	}
-
 	return &registerUserCommand{
 		repo:            repo,
-		userFactory:     factory,
+		userFactory:     userFactory,
 		eventDispatcher: eventDispatcher,
 		log:             logger.Component("auth.command.register_user"),
 	}

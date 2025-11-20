@@ -15,14 +15,14 @@ import (
 type ProductHandler struct {
 	ecommercev1.UnimplementedProductServiceServer
 	deps      *bootstrap.Dependencies
-	dtoMapper *mappers.ProductDTOMapper
+	dtoMapper mappers.ProductDTOMapper
 	log       *zerolog.Logger
 }
 
-func NewProductHandler(deps *bootstrap.Dependencies) *ProductHandler {
+func NewProductHandler(deps *bootstrap.Dependencies, dtoMapper mappers.ProductDTOMapper) *ProductHandler {
 	return &ProductHandler{
 		deps:      deps,
-		dtoMapper: mappers.NewProductDTOMapper(),
+		dtoMapper: dtoMapper,
 		log:       logger.Component("ecommerce.grpc.product"),
 	}
 }

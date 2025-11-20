@@ -17,18 +17,19 @@ var _ contracts.CreateMessageCommand = (*createMessageCommand)(nil)
 
 type createMessageCommand struct {
 	repo            *persistence.MessageRepository
-	messageFactory  *factories.MessageFactory
+	messageFactory  factories.MessageFactory
 	eventDispatcher *event_dispatcher.Dispatcher
 	log             *zerolog.Logger
 }
 
 func NewCreateMessageCommand(
 	repo *persistence.MessageRepository,
+	messageFactory factories.MessageFactory,
 	eventDispatcher *event_dispatcher.Dispatcher,
 ) contracts.CreateMessageCommand {
 	return &createMessageCommand{
 		repo:            repo,
-		messageFactory:  factories.NewMessageFactory(),
+		messageFactory:  messageFactory,
 		eventDispatcher: eventDispatcher,
 		log:             logger.Component("chat.command.create_message"),
 	}

@@ -17,6 +17,8 @@ import (
 	"golang-social-media/apps/ecommerce-service/internal/infrastructure/eventstore"
 	"golang-social-media/apps/ecommerce-service/internal/infrastructure/outbox"
 	postgrespersistence "golang-social-media/apps/ecommerce-service/internal/infrastructure/persistence/postgres"
+	postgrespersistencemappers "golang-social-media/apps/ecommerce-service/internal/infrastructure/persistence/postgres/mappers"
+	domainfactories "golang-social-media/apps/ecommerce-service/internal/domain/factories"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
 	postgresdriver "gorm.io/driver/postgres"
@@ -74,15 +76,19 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 		orderCache = cache.NewOrderCache(redisCache)
 	}
 
-	// Setup repositories with cache
-	productRepo := postgrespersistence.NewProductRepository(db, productCache)
-	orderRepo := postgrespersistence.NewOrderRepository(db, orderCache)
+	// Setup mappers
+	productMapper := postgrespersistencemappers.NewProductMapper()
+	orderMapper := postgrespersistencemappers.NewOrderMapper()
+
+	// Setup repositories with cache and mappers
+	productRepo := postgrespersistence.NewProductRepository(db, productMapper, productCache)
+	orderRepo := postgrespersistence.NewOrderRepository(db, orderMapper, orderCache)
 
 	// Setup batch repository
 	batchRepo := postgrespersistence.NewBatchRepository(db)
 
-	// Setup Unit of Work factory
-	uowFactory := postgrespersistence.NewUnitOfWorkFactory(db)
+	// Setup Unit of Work factory with mappers
+	uowFactory := postgrespersistence.NewUnitOfWorkFactory(db, productMapper, orderMapper)
 
 	// Setup event bus publisher
 	publisher, err := setupPublisher()
@@ -102,8 +108,11 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	eventStoreRepo := postgrespersistence.NewEventStoreRepository(db)
 	eventStoreService := eventstore.NewEventStoreService(eventStoreRepo)
 
+	// Setup factories
+	orderFactory := domainfactories.NewOrderFactory()
+
 	// Setup commands
-	commands := setupCommands(uowFactory, productRepo, orderRepo, eventDispatcher, outboxService, eventStoreService)
+	commands := setupCommands(uowFactory, orderFactory, productRepo, orderRepo, eventDispatcher, outboxService, eventStoreService)
 
 	// Setup queries
 	queries := setupQueries(productRepo, orderRepo)
@@ -280,6 +289,7 @@ type commands struct {
 
 func setupCommands(
 	uowFactory unit_of_work.Factory,
+	orderFactory domainfactories.OrderFactory,
 	productRepo appproducts.Repository,
 	orderRepo apporders.Repository,
 	eventDispatcher *event_dispatcher.Dispatcher,
@@ -288,7 +298,7 @@ func setupCommands(
 ) commands {
 	createProductCmd := appcommand.NewCreateProductCommand(productRepo, eventDispatcher)
 	updateProductStockCmd := appcommand.NewUpdateProductStockCommand(productRepo, eventDispatcher)
-	createOrderCmd := appcommand.NewCreateOrderCommand(uowFactory, outboxService, eventStore)
+	createOrderCmd := appcommand.NewCreateOrderCommand(uowFactory, orderFactory, outboxService, eventStore)
 	addOrderItemCmd := appcommand.NewAddOrderItemCommand(uowFactory, eventDispatcher)
 	confirmOrderCmd := appcommand.NewConfirmOrderCommand(uowFactory, eventDispatcher)
 	cancelOrderCmd := appcommand.NewCancelOrderCommand(uowFactory, eventDispatcher)

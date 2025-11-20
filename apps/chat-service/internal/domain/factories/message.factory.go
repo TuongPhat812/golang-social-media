@@ -7,17 +7,19 @@ import (
 	"github.com/google/uuid"
 )
 
-// MessageFactory creates Message entities with proper initialization
-type MessageFactory struct{}
+// MessageFactoryImpl implements MessageFactory interface
+type MessageFactoryImpl struct{}
 
-// NewMessageFactory creates a new MessageFactory
-func NewMessageFactory() *MessageFactory {
-	return &MessageFactory{}
+var _ MessageFactory = (*MessageFactoryImpl)(nil)
+
+// NewMessageFactory creates a new MessageFactoryImpl
+func NewMessageFactory() MessageFactory {
+	return &MessageFactoryImpl{}
 }
 
 // CreateMessage creates a new Message with proper initialization
 // This factory encapsulates the complex creation logic
-func (f *MessageFactory) CreateMessage(senderID, receiverID, content string) (*message.Message, error) {
+func (f *MessageFactoryImpl) CreateMessage(senderID, receiverID, content string) (*message.Message, error) {
 	if senderID == "" {
 		return nil, &MessageFactoryError{Message: "sender ID cannot be empty"}
 	}

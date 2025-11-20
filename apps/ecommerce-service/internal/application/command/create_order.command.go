@@ -17,21 +17,22 @@ import (
 var _ contracts.CreateOrderCommand = (*createOrderCommand)(nil)
 
 type createOrderCommand struct {
-	uowFactory     unit_of_work.Factory
-	orderFactory  *factories.OrderFactory
-	outboxService  *outbox.OutboxService
-	eventStore     *eventstore.EventStoreService
-	log            *zerolog.Logger
+	uowFactory    unit_of_work.Factory
+	orderFactory  factories.OrderFactory
+	outboxService *outbox.OutboxService
+	eventStore    *eventstore.EventStoreService
+	log           *zerolog.Logger
 }
 
 func NewCreateOrderCommand(
 	uowFactory unit_of_work.Factory,
+	orderFactory factories.OrderFactory,
 	outboxService *outbox.OutboxService,
 	eventStore *eventstore.EventStoreService,
 ) contracts.CreateOrderCommand {
 	return &createOrderCommand{
 		uowFactory:    uowFactory,
-		orderFactory:  factories.NewOrderFactory(),
+		orderFactory:  orderFactory,
 		outboxService: outboxService,
 		eventStore:    eventStore,
 		log:           logger.Component("ecommerce.command.create_order"),
