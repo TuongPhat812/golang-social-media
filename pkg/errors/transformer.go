@@ -122,7 +122,7 @@ func (t *Transformer) Transform(err error) *AppError {
 	}
 
 	// Default: internal server error
-	appErr := NewInternalError(err)
+	appErr = NewInternalError(err)
 	if t.DevelopmentMode {
 		if appErr.Details == nil {
 			appErr.Details = make(map[string]interface{})

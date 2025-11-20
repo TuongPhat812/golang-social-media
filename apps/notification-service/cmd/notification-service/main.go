@@ -58,8 +58,8 @@ func main() {
 
 // startSubscribers starts all event subscribers
 func startSubscribers(ctx context.Context, deps *bootstrap.Dependencies) {
-	deps.ChatSubscriber.Consume(ctx)
-	deps.UserSubscriber.Consume(ctx)
+	go deps.ChatSubscriber.Consume(ctx)
+	go deps.UserSubscriber.Consume(ctx)
 }
 
 // cleanup closes all resources

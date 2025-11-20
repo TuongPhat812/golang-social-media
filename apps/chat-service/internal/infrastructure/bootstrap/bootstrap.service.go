@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"time"
 
 	appcommand "golang-social-media/apps/chat-service/internal/application/command"
 	commandcontracts "golang-social-media/apps/chat-service/internal/application/command/contracts"
@@ -78,9 +79,34 @@ func setupDatabase() (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// Configure connection pool for high concurrency
+	sqlDB, err := db.DB()
+	if err != nil {
+		logger.Component("chat.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to get underlying sql.DB")
+		return nil, err
+	}
+
+	// Set connection pool settings
+	// MaxOpenConns: maximum number of open connections to the database
+	// MaxIdleConns: maximum number of connections in the idle connection pool
+	// ConnMaxLifetime: maximum amount of time a connection may be reused
+	maxOpenConns := config.GetEnvInt("DB_MAX_OPEN_CONNS", 100)
+	maxIdleConns := config.GetEnvInt("DB_MAX_IDLE_CONNS", 25)
+	connMaxLifetime := config.GetEnvInt("DB_CONN_MAX_LIFETIME_MINUTES", 5)
+
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Minute)
+
 	logger.Component("chat.bootstrap").
 		Info().
-		Msg("database connected")
+		Int("max_open_conns", maxOpenConns).
+		Int("max_idle_conns", maxIdleConns).
+		Int("conn_max_lifetime_minutes", connMaxLifetime).
+		Msg("database connected with connection pool configured")
 
 	return db, nil
 }
