@@ -9,6 +9,7 @@ import (
 
 	bootstrap "golang-social-media/apps/gateway/internal/infrastructure/bootstrap"
 	httpserver "golang-social-media/apps/gateway/internal/infrastructure/http"
+	middleware "golang-social-media/apps/gateway/internal/infrastructure/middleware"
 	commandrest "golang-social-media/apps/gateway/internal/interfaces/rest/command"
 	queryrest "golang-social-media/apps/gateway/internal/interfaces/rest/query"
 	"golang-social-media/pkg/config"
@@ -65,11 +66,15 @@ func buildRouter(deps *bootstrap.Dependencies) *gin.Engine {
 	loginUserHTTP := commandrest.NewLoginUserHTTPHandler(deps.LoginUserCmd)
 	getUserProfileHTTP := queryrest.NewGetUserProfileHTTPHandler(deps.GetUserProfileQuery)
 
+	// Create auth client adapter for middleware
+	authClientAdapter := middleware.NewAuthGRPCClientAdapter(deps.AuthGRPCClient)
+
 	return httpserver.NewRouter(
 		registerUserHTTP,
 		loginUserHTTP,
 		createMessageHTTP,
 		getUserProfileHTTP,
+		authClientAdapter,
 	)
 }
 
@@ -81,6 +86,14 @@ func cleanup(deps *bootstrap.Dependencies) {
 				Error().
 				Err(err).
 				Msg("failed to close chat client")
+		}
+	}
+	if deps.AuthGRPCClient != nil {
+		if err := deps.AuthGRPCClient.Close(); err != nil {
+			logger.Component("gateway.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close auth gRPC client")
 		}
 	}
 }

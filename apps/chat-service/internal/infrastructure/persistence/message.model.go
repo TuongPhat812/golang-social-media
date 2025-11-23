@@ -10,6 +10,7 @@ type MessageModel struct {
 	ReceiverID string    `gorm:"column:receiver_id;type:text;not null"`
 	Content    string    `gorm:"column:content;type:text;not null"`
 	CreatedAt  time.Time `gorm:"column:created_at;not null"`
+	ShardID    int       `gorm:"column:shard_id;type:integer;not null;<-:false"` // Generated column, read-only (PostgreSQL calculates automatically)
 }
 
 func (MessageModel) TableName() string {

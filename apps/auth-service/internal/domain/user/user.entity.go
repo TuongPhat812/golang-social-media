@@ -8,10 +8,11 @@ import (
 )
 
 type User struct {
-	ID       string
-	Email    string
-	Password string
-	Name     string
+	ID        string
+	Email     string
+	Password  string
+	Name      string
+	UpdatedAt time.Time
 
 	// Domain events (internal, not persisted)
 	events []DomainEvent
@@ -37,6 +38,17 @@ func (u User) Validate() error {
 	return nil
 }
 
+// ValidatePassword validates password rules
+func (u User) ValidatePassword(password string) error {
+	if strings.TrimSpace(password) == "" {
+		return errors.NewValidationError(errors.CodePasswordRequired, nil)
+	}
+	if len(password) < 6 {
+		return errors.NewValidationError(errors.CodePasswordTooShort, nil)
+	}
+	return nil
+}
+
 // Create is a domain method that creates a user and adds a domain event
 func (u *User) Create() {
 	u.addEvent(UserCreatedEvent{
@@ -44,6 +56,34 @@ func (u *User) Create() {
 		Email:     u.Email,
 		Name:      u.Name,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// UpdateProfile updates user profile and adds a domain event
+func (u *User) UpdateProfile(name string) {
+	if strings.TrimSpace(name) == "" {
+		return // Invalid, should be validated before calling
+	}
+	oldName := u.Name
+	u.Name = name
+	u.UpdatedAt = time.Now().UTC()
+
+	u.addEvent(UserProfileUpdatedEvent{
+		UserID:    u.ID,
+		OldName:   oldName,
+		NewName:   name,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// ChangePassword changes user password and adds a domain event
+func (u *User) ChangePassword(newPassword string) {
+	u.Password = newPassword
+	u.UpdatedAt = time.Now().UTC()
+
+	u.addEvent(UserPasswordChangedEvent{
+		UserID:    u.ID,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	})
 }
 

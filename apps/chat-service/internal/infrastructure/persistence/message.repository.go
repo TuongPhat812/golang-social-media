@@ -25,7 +25,8 @@ func NewMessageRepository(db *gorm.DB, mapper MessageMapper) *MessageRepository 
 
 func (r *MessageRepository) Create(ctx context.Context, msg *domain.Message) error {
 	model := r.mapper.ToModel(*msg)
-	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
+	// Omit shard_id as it's a GENERATED column - PostgreSQL calculates it automatically
+	if err := r.db.WithContext(ctx).Omit("shard_id").Create(&model).Error; err != nil {
 		return err
 	}
 	*msg = r.mapper.ToDomain(model)

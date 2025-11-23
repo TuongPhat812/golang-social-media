@@ -3,20 +3,20 @@ package command
 import (
 	"context"
 
+	"golang-social-media/apps/auth-service/internal/infrastructure/jwt"
 	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/memory"
-	"golang-social-media/apps/auth-service/internal/pkg/random"
 	"golang-social-media/pkg/contracts/auth"
 )
 
 type LoginUserHandler struct {
-	repo       *memory.UserRepository
-	tokenStore *TokenStore
+	repo      *memory.UserRepository
+	jwtService *jwt.Service
 }
 
-func NewLoginUserHandler(repo *memory.UserRepository, tokenStore *TokenStore) *LoginUserHandler {
+func NewLoginUserHandler(repo *memory.UserRepository, jwtService *jwt.Service) *LoginUserHandler {
 	return &LoginUserHandler{
 		repo:       repo,
-		tokenStore: tokenStore,
+		jwtService: jwtService,
 	}
 }
 
@@ -28,11 +28,17 @@ func (h *LoginUserHandler) Handle(ctx context.Context, req auth.LoginRequest) (a
 	if user.Password != req.Password {
 		return auth.LoginResponse{}, memory.ErrInvalidAuth
 	}
-	token := random.String(16)
-	h.tokenStore.Save(token, user.ID)
+
+	// Generate JWT token pair (access + refresh)
+	tokenPair, err := h.jwtService.GenerateTokenPair(user.ID)
+	if err != nil {
+		return auth.LoginResponse{}, err
+	}
 
 	return auth.LoginResponse{
-		UserID: user.ID,
-		Token:  token,
+		UserID:       user.ID,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    tokenPair.ExpiresIn,
 	}, nil
 }

@@ -2,15 +2,19 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	appcommand "golang-social-media/apps/chat-service/internal/application/command"
 	commandcontracts "golang-social-media/apps/chat-service/internal/application/command/contracts"
 	event_dispatcher "golang-social-media/apps/chat-service/internal/application/event_dispatcher"
 	event_handler "golang-social-media/apps/chat-service/internal/application/event_handler"
+	chatcache "golang-social-media/apps/chat-service/internal/infrastructure/cache"
 	eventbuspublisher "golang-social-media/apps/chat-service/internal/infrastructure/eventbus/publisher"
+	eventbussubscriber "golang-social-media/apps/chat-service/internal/infrastructure/eventbus/subscriber"
 	"golang-social-media/apps/chat-service/internal/infrastructure/persistence"
 	domainfactories "golang-social-media/apps/chat-service/internal/domain/factories"
+	"golang-social-media/pkg/cache"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
 	"gorm.io/driver/postgres"
@@ -21,9 +25,12 @@ import (
 type Dependencies struct {
 	DB                *gorm.DB
 	Publisher         *eventbuspublisher.KafkaPublisher
+	Cache             cache.Cache
 	MessageRepo       *persistence.MessageRepository
+	UserRepo          *persistence.UserRepository
 	EventDispatcher   *event_dispatcher.Dispatcher
 	CreateMessageCmd  commandcontracts.CreateMessageCommand
+	UserSubscriber    *eventbussubscriber.UserCreatedSubscriber
 }
 
 // SetupDependencies initializes all service dependencies
@@ -34,11 +41,28 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 		return nil, err
 	}
 
+	// Setup Redis cache
+	redisCache, err := setupCache()
+	if err != nil {
+		logger.Component("chat.bootstrap").
+			Warn().
+			Err(err).
+			Msg("failed to setup cache, continuing without cache")
+		redisCache = nil
+	}
+
+	// Setup cache wrappers
+	var userCache *chatcache.UserCache
+	if redisCache != nil {
+		userCache = chatcache.NewUserCache(redisCache)
+	}
+
 	// Setup mappers
 	messageMapper := persistence.NewMessageMapper()
 
 	// Setup repositories
 	messageRepo := persistence.NewMessageRepository(db, messageMapper)
+	userRepo := persistence.NewUserRepository(db, userCache)
 
 	// Setup event bus publisher
 	publisher, err := setupPublisher()
@@ -54,6 +78,13 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 
 	// Setup commands
 	createMessageCmd := setupCommands(messageRepo, messageFactory, eventDispatcher)
+	handleUserCreatedCmd := setupHandleUserCreatedCommand(userRepo)
+
+	// Setup subscribers
+	userSubscriber, err := setupUserSubscriber(handleUserCreatedCmd)
+	if err != nil {
+		return nil, err
+	}
 
 	logger.Component("chat.bootstrap").
 		Info().
@@ -62,9 +93,12 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	return &Dependencies{
 		DB:               db,
 		Publisher:        publisher,
+		Cache:            redisCache,
 		MessageRepo:      messageRepo,
+		UserRepo:         userRepo,
 		EventDispatcher:  eventDispatcher,
 		CreateMessageCmd: createMessageCmd,
+		UserSubscriber:   userSubscriber,
 	}, nil
 }
 
@@ -170,5 +204,69 @@ func setupCommands(
 		Msg("commands configured")
 
 	return createMessageCmd
+}
+
+func setupHandleUserCreatedCommand(userRepo *persistence.UserRepository) commandcontracts.HandleUserCreatedCommand {
+	handleUserCreatedCmd := appcommand.NewHandleUserCreatedCommand(userRepo)
+
+	logger.Component("chat.bootstrap").
+		Info().
+		Str("command", "HandleUserCreatedCommand").
+		Msg("registered command")
+
+	return handleUserCreatedCmd
+}
+
+func setupUserSubscriber(handleUserCreatedCmd commandcontracts.HandleUserCreatedCommand) (*eventbussubscriber.UserCreatedSubscriber, error) {
+	brokers := config.GetEnvStringSlice("KAFKA_BROKERS", []string{"localhost:9092"})
+	groupID := config.GetEnv("CHAT_USER_GROUP_ID", "chat-service-user")
+
+	// Type assertion to get the handler
+	handler, ok := handleUserCreatedCmd.(*appcommand.HandleUserCreatedCommandHandler)
+	if !ok {
+		return nil, fmt.Errorf("invalid HandleUserCreatedCommand type")
+	}
+
+	subscriber, err := eventbussubscriber.NewUserCreatedSubscriber(brokers, groupID, handler)
+	if err != nil {
+		logger.Component("chat.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to create user subscriber")
+		return nil, err
+	}
+
+	logger.Component("chat.bootstrap").
+		Info().
+		Str("subscriber", "UserCreatedSubscriber").
+		Str("topic", "user.created").
+		Str("group_id", groupID).
+		Msg("registered subscriber")
+
+	logger.Component("chat.bootstrap").
+		Info().
+		Int("total_subscribers", 1).
+		Msg("subscribers configured")
+
+	return subscriber, nil
+}
+
+func setupCache() (cache.Cache, error) {
+	addr := config.GetEnv("REDIS_ADDR", "localhost:6379")
+	password := config.GetEnv("REDIS_PASSWORD", "")
+	db := config.GetEnvInt("REDIS_DB", 0)
+
+	redisCache, err := cache.NewRedisCache(addr, password, db, "chat.cache")
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Component("chat.bootstrap").
+		Info().
+		Str("addr", addr).
+		Int("db", db).
+		Msg("redis cache initialized")
+
+	return redisCache, nil
 }
 

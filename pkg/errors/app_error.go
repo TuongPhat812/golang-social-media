@@ -95,3 +95,10 @@ func NewConflictError(code ErrorCode) *AppError {
 	return NewAppError(code, http.StatusConflict)
 }
 
+func NewTooManyRequestsError(message string) *AppError {
+	if message == "" {
+		return NewAppError(CodeRateLimitExceeded, http.StatusTooManyRequests)
+	}
+	return NewAppErrorWithMessage(CodeRateLimitExceeded, http.StatusTooManyRequests, message)
+}
+

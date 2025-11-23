@@ -17,3 +17,24 @@ func (e UserCreatedEvent) Type() string {
 	return "UserCreated"
 }
 
+// UserProfileUpdatedEvent is a domain event emitted when user profile is updated
+type UserProfileUpdatedEvent struct {
+	UserID    string
+	OldName   string
+	NewName   string
+	UpdatedAt string
+}
+
+func (e UserProfileUpdatedEvent) Type() string {
+	return "UserProfileUpdated"
+}
+
+// UserPasswordChangedEvent is a domain event emitted when user password is changed
+type UserPasswordChangedEvent struct {
+	UserID    string
+	UpdatedAt string
+}
+
+func (e UserPasswordChangedEvent) Type() string {
+	return "UserPasswordChanged"
+}

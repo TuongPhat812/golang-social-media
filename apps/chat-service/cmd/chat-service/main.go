@@ -40,6 +40,9 @@ func main() {
 		Info().
 		Msg("chat service ready")
 
+	// Start event subscribers in background (non-blocking)
+	startSubscribers(ctx, deps)
+
 	// Start gRPC server
 	port := config.GetEnvInt("CHAT_SERVICE_PORT", 9000)
 	addr := fmt.Sprintf(":%d", port)
@@ -59,6 +62,13 @@ func main() {
 	}
 }
 
+// startSubscribers starts all event subscribers
+func startSubscribers(ctx context.Context, deps *bootstrap.Dependencies) {
+	if deps.UserSubscriber != nil {
+		go deps.UserSubscriber.Consume(ctx)
+	}
+}
+
 // cleanup closes all resources
 func cleanup(deps *bootstrap.Dependencies) {
 	if deps.Publisher != nil {
@@ -67,6 +77,22 @@ func cleanup(deps *bootstrap.Dependencies) {
 				Error().
 				Err(err).
 				Msg("failed to close kafka publisher")
+		}
+	}
+	if deps.UserSubscriber != nil {
+		if err := deps.UserSubscriber.Close(); err != nil {
+			logger.Component("chat.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close user subscriber")
+		}
+	}
+	if deps.Cache != nil {
+		if err := deps.Cache.Close(); err != nil {
+			logger.Component("chat.bootstrap").
+				Error().
+				Err(err).
+				Msg("failed to close cache")
 		}
 	}
 }

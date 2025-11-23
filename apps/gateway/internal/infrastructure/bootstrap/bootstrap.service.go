@@ -10,6 +10,7 @@ import (
 	appquery "golang-social-media/apps/gateway/internal/application/query"
 	querycontracts "golang-social-media/apps/gateway/internal/application/query/contracts"
 	authclient "golang-social-media/apps/gateway/internal/infrastructure/auth"
+	authgrpc "golang-social-media/apps/gateway/internal/infrastructure/grpc/auth"
 	chatclient "golang-social-media/apps/gateway/internal/infrastructure/grpc/chat"
 	"golang-social-media/pkg/config"
 	"golang-social-media/pkg/logger"
@@ -21,6 +22,7 @@ import (
 type Dependencies struct {
 	ChatClient         *chatclient.Client
 	AuthClient         *authclient.Client
+	AuthGRPCClient     *authgrpc.Client
 	CreateMessageCmd   commandcontracts.CreateMessageCommand
 	RegisterUserCmd    commandcontracts.RegisterUserCommand
 	LoginUserCmd       commandcontracts.LoginUserCommand
@@ -40,6 +42,12 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 
 	authClient := setupAuthClient()
 
+	// Setup auth gRPC client for token validation
+	authGRPCClient, err := setupAuthGRPCClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Setup commands
 	createMessageCmd := appcommand.NewCreateMessageCommand(chatClient)
 	registerUserCmd := appcommand.NewRegisterUserCommand(authClient)
@@ -55,6 +63,7 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	return &Dependencies{
 		ChatClient:         chatClient,
 		AuthClient:         authClient,
+		AuthGRPCClient:     authGRPCClient,
 		CreateMessageCmd:   createMessageCmd,
 		RegisterUserCmd:    registerUserCmd,
 		LoginUserCmd:       loginUserCmd,
@@ -107,8 +116,25 @@ func setupAuthClient() *authclient.Client {
 	logger.Component("gateway.bootstrap").
 		Info().
 		Str("base_url", authBaseURL).
-		Msg("auth service client initialized")
+		Msg("auth service HTTP client initialized")
 
 	return client
+}
+
+func setupAuthGRPCClient(ctx context.Context) (*authgrpc.Client, error) {
+	client, err := authgrpc.NewClient(ctx)
+	if err != nil {
+		logger.Component("gateway.bootstrap").
+			Error().
+			Err(err).
+			Msg("failed to connect to auth service gRPC")
+		return nil, err
+	}
+
+	logger.Component("gateway.bootstrap").
+		Info().
+		Msg("auth service gRPC client connected")
+
+	return client, nil
 }
 
