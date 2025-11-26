@@ -41,6 +41,14 @@ func main() {
 		Info().
 		Msg("auth service ready")
 
+	// Start outbox processor in background
+	if deps.OutboxProcessor != nil {
+		go deps.OutboxProcessor.Start(ctx)
+		logger.Component("auth.outbox").
+			Info().
+			Msg("outbox processor started")
+	}
+
 	// Setup HTTP handlers
 	authHandler := rest.NewAuthHandler(deps.RegisterUserCmd, deps.LoginUserCmd)
 	profileHandler := rest.NewProfileHandler(deps.UpdateProfileCmd, deps.GetUserProfileQuery, deps.GetCurrentUserQuery)

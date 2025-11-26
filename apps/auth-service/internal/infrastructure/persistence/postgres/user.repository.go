@@ -33,6 +33,16 @@ func NewUserRepository(db *gorm.DB, cache *authcache.UserCache) *UserRepository 
 	}
 }
 
+// NewUserRepositoryWithTx creates a repository that uses a specific transaction
+// This is used within UnitOfWork to ensure all operations share the same transaction
+func NewUserRepositoryWithTx(tx *gorm.DB, mapper mappers.UserMapper, cache *authcache.UserCache) *UserRepository {
+	return &UserRepository{
+		db:     tx,
+		mapper: &mapper,
+		cache:  cache, // Cache is typically not used in transactions
+	}
+}
+
 func (r *UserRepository) Create(u user.User) error {
 	// Check cache first (optimistic check)
 	if r.cache != nil {

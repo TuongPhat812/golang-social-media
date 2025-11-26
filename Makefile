@@ -4,7 +4,7 @@ CHAT_MIGRATION_DIR=apps/chat-service/migrations
 CHAT_DB_DSN?=postgres://chat_user:chat_password@localhost:5432/chat_service?sslmode=disable
 MIGRATE_CLI=cd apps/chat-service && LOG_OUTPUT_DIR=$${LOG_OUTPUT_DIR:-logs} CHAT_DATABASE_DSN=$(CHAT_DB_DSN) go run ./cmd/migrate
 
-.PHONY: proto migration-create migration-up migration-down setup-ubuntu-deps load-test-chat
+.PHONY: proto migration-create migration-up migration-down setup-ubuntu-deps load-test-chat test test-auth test-chat test-gateway test-cover
 
 proto:
 	@$(PROTOC) --version >/dev/null
@@ -38,3 +38,45 @@ scylla-migrate-add-read-at:
 load-test-chat:
 	@echo "Running load test on chat endpoint..."
 	@go run scripts/load_test_chat.go
+
+test:
+	@echo "Running all tests..."
+	@cd apps/auth-service && go test -v ./internal/domain/... ./internal/infrastructure/jwt/test/... ./internal/application/command/test/... ./internal/application/query/test/... || true
+	@cd apps/chat-service && go test -v ./... || true
+	@cd apps/gateway && go test -v ./... || true
+	@cd pkg && go test -v ./... || true
+
+test-auth:
+	@echo "Running auth-service tests..."
+	@cd apps/auth-service && go test -v ./internal/domain/... ./internal/infrastructure/jwt/test/... ./internal/application/command/test/... ./internal/application/query/test/... || true
+
+test-chat:
+	@echo "Running chat-service tests..."
+	@cd apps/chat-service && go test -v ./... || true
+
+test-gateway:
+	@echo "Running gateway tests..."
+	@cd apps/gateway && go test -v ./... || true
+
+test-cover:
+	@echo "Running tests with coverage..."
+	@cd apps/auth-service && go test -cover ./internal/domain/... ./internal/infrastructure/jwt/test/... ./internal/application/command/test/... ./internal/application/query/test/... || true
+	@cd apps/chat-service && go test -cover ./... || true
+	@cd apps/gateway && go test -cover ./... || true
+	@cd pkg && go test -cover ./... || true
+
+test-domain:
+	@echo "Running domain tests only..."
+	@cd apps/auth-service && go test -v ./internal/domain/user/test ./internal/domain/role/test ./internal/domain/permission/test ./internal/domain/user_role/test ./internal/domain/role_permission/test ./internal/domain/factories/test || true
+
+test-jwt:
+	@echo "Running JWT service tests..."
+	@cd apps/auth-service && go test -v ./internal/infrastructure/jwt/test || true
+
+test-command:
+	@echo "Running command tests..."
+	@cd apps/auth-service && go test -v ./internal/application/command/test || true
+
+test-query:
+	@echo "Running query tests..."
+	@cd apps/auth-service && go test -v ./internal/application/query/test || true

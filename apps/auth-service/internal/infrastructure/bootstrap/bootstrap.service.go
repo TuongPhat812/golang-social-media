@@ -12,8 +12,11 @@ import (
 	event_handler "golang-social-media/apps/auth-service/internal/application/event_handler"
 	authcache "golang-social-media/apps/auth-service/internal/infrastructure/cache"
 	eventbuspublisher "golang-social-media/apps/auth-service/internal/infrastructure/eventbus/publisher"
+	autheventstore "golang-social-media/apps/auth-service/internal/infrastructure/eventstore"
+	authoutbox "golang-social-media/apps/auth-service/internal/infrastructure/outbox"
 	"golang-social-media/apps/auth-service/internal/infrastructure/jwt"
 	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/postgres"
+	"golang-social-media/apps/auth-service/internal/infrastructure/persistence/postgres/mappers"
 	redispersistence "golang-social-media/apps/auth-service/internal/infrastructure/persistence/redis"
 	domainfactories "golang-social-media/apps/auth-service/internal/domain/factories"
 	"golang-social-media/pkg/cache"
@@ -36,6 +39,7 @@ type Dependencies struct {
 	TokenBlacklistRepo  *redispersistence.TokenBlacklistRepository
 	EventDispatcher     *event_dispatcher.Dispatcher
 	JwtService          *jwt.Service
+	OutboxProcessor     *authoutbox.Processor
 	RegisterUserCmd     commandcontracts.RegisterUserCommand
 	LoginUserCmd        *appcommand.LoginUserHandler
 	LogoutUserCmd       commandcontracts.LogoutUserCommand
@@ -103,8 +107,21 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 	refreshExpirationHours := config.GetEnvInt("JWT_REFRESH_EXPIRATION_HOURS", 168) // Default 7 days
 	jwtService := jwt.NewService(jwtSecret, accessExpirationHours, refreshExpirationHours)
 
+	// Setup outbox and event store
+	outboxRepo := postgres.NewOutboxRepository(db)
+	eventStoreRepo := postgres.NewEventStoreRepository(db)
+	outboxService := authoutbox.NewOutboxService(outboxRepo)
+	eventStoreService := autheventstore.NewEventStoreService(eventStoreRepo)
+
+	// Setup outbox processor (will be started in main.go)
+	outboxProcessor := authoutbox.NewProcessor(outboxRepo, publisher)
+
+	// Setup Unit of Work factory
+	userMapper := mappers.NewUserMapper()
+	uowFactory := postgres.NewUnitOfWorkFactory(db, userMapper)
+
 	// Setup commands
-	registerUserCmd := appcommand.NewRegisterUserCommand(userRepo, userFactory, eventDispatcher)
+	registerUserCmd := appcommand.NewRegisterUserCommandWithUoW(uowFactory, userFactory, eventDispatcher)
 	loginUserCmd := appcommand.NewLoginUserHandler(userRepo, jwtService)
 	logoutUserCmd := appcommand.NewLogoutUserCommand(tokenBlacklistRepo)
 	refreshTokenCmd := appcommand.NewRefreshTokenCommand(userRepo, jwtService, tokenBlacklistRepo)
@@ -133,6 +150,7 @@ func SetupDependencies(ctx context.Context) (*Dependencies, error) {
 		TokenBlacklistRepo:  tokenBlacklistRepo,
 		EventDispatcher:     eventDispatcher,
 		JwtService:          jwtService,
+		OutboxProcessor:     outboxProcessor,
 		RegisterUserCmd:     registerUserCmd,
 		LoginUserCmd:        loginUserCmd,
 		LogoutUserCmd:       logoutUserCmd,
